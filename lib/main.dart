@@ -28,13 +28,14 @@ class _DState extends State<DainikKharchApp> with SingleTickerProviderStateMixin
   double monthlyBudget = 4000; // Default 4000 tuzya sathi
   late AnimationController pulseCtrl;
 
-  List<Map<String, dynamic>> catBlocks = [
+    List<Map<String, dynamic>> catBlocks = [
     {"title":"भाजीपाला","icon":"🥬","cat":"भाजीपाला","c1":0xFF00C853,"c2":0xFF69F0AE,"shadow":0xFF00C853},
     {"title":"किराणा","icon":"🛒","cat":"किराणा","c1":0xFFD500F9,"c2":0xFFEA80FC,"shadow":0xFFAA00FF},
     {"title":"पेट्रोल","icon":"⛽","cat":"प्रवास","c1":0xFF2962FF,"c2":0xFF82B1FF,"shadow":0xFF2962FF},
     {"title":"लाईट बिल","icon":"💡","cat":"बिल","c1":0xFFFF6D00,"c2":0xFFFFAB40,"shadow":0xFFFF6D00},
     {"title":"रिचार्ज","icon":"📱","cat":"रिचार्ज","c1":0xFF00B8D4,"c2":0xFF84FFFF,"shadow":0xFF00B8D4},
     {"title":"चहा नाश्ता","icon":"☕","cat":"खाद्य","c1":0xFFFF1744,"c2":0xFFFF8A80,"shadow":0xFFFF1744},
+    {"title":"इतर","icon":"➕","cat":"इतर","c1":0xFF6C757D,"c2":0xFFADB5BD,"shadow":0xFF495057}, // <-- HA NAVIN BLOCK
   ];
 
   @override void initState(){ super.initState(); load(); pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 800))..repeat(reverse: true); }
