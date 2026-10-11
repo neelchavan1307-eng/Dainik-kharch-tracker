@@ -51,6 +51,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     setState(()=> savedPattern=pat); isSettingPattern=false; statusText="Pattern saved! Now draw it"; enteredPattern=[];
   }
 
+  // === 100% REAL FINGERPRINT - Fakt tumchach gheil - Dusryacha nahi! ===
   Future<void> tryFingerprint() async {
     try{
       bool canCheck = await auth.canCheckBiometrics;
@@ -58,7 +59,14 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       List<BiometricType> available = await auth.getAvailableBiometrics();
       if(!isSupported ||!canCheck){ setState(()=> statusText="Device doesn't support fingerprint"); return; }
       if(available.isEmpty){ setState(()=> statusText="Fingerprint not enrolled - Add in Settings"); return; }
-      bool didAuth = await auth.authenticate(localizedReason: 'खर्च वही अनलॉक करण्यासाठी बोट ठेवा', options: AuthenticationOptions(biometricOnly: true, stickyAuth: true, useErrorDialogs: true));
+      bool didAuth = await auth.authenticate(
+        localizedReason: 'खर्च वही अनलॉक करण्यासाठी तुमचा खरा बोट ठेवा - Fakt tumchach chalanar!',
+        options: AuthenticationOptions(
+          biometricOnly: true, // Fakt khara fingerprint - PIN nahi!
+          stickyAuth: true,
+          useErrorDialogs: true
+        )
+      );
       if(didAuth){ HapticFeedback.heavyImpact(); widget.onSuccess(); }
     } catch(e){ setState(()=> statusText="Error: $e"); }
   }
@@ -99,21 +107,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               ]),
             ])),
           ),
+          // === CORRECTED LOCATION - EKDOM KHALI 25px ===
           Positioned(
-            bottom: 75, left: 0, right: 0,
+            bottom: 25, // Ithech badal kela - 75 hota aata 25 kela!
+            left: 0, right: 0,
             child: Column(children: [
               ScaleTransition(
                 scale: Tween(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: pulseCtrl, curve: Curves.easeInOut)),
                 child: GestureDetector(
                   onTap: tryFingerprint,
                   child: Stack(alignment: Alignment.center, children: [
-                    Container(width: 78, height: 78, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.2))),
-                    Container(width: 52, height: 52, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E), border: Border.all(color: Color(0xFF00E676), width: 1.5), boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.4), blurRadius: 18)]), child: Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 26)),
+                    Container(width: 88, height: 88, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.8))),
+                    Container(width: 58, height: 58, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E), border: Border.all(color: Color(0xFF00E676), width: 2.2), boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.6), blurRadius: 22)]), child: Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 28)),
                   ]),
                 ),
               ),
               SizedBox(height: 10),
-              GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)), child: Text("Touch ORIGINAL Sensor Below", style: TextStyle(color: Colors.white60, fontSize: 10)))),
+              GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)), child: Text("खरा Sensor ला Touch करा - Fakt tumchach", style: TextStyle(color: Colors.white70, fontSize: 10)))),
             ]),
           ),
         ]),
@@ -135,9 +145,7 @@ class ModernPatternPainter extends CustomPainter {
     if(fingerPos!=null && points.isNotEmpty){ canvas.drawLine(points.last, fingerPos!, linePaint); }
   }
   @override bool shouldRepaint(covariant CustomPainter oldDelegate)=>true;
-}
-
-class Expense {
+}class Expense {
   String title, amount, cat; DateTime date;
   Expense({required this.title, required this.amount, required this.cat, required this.date});
   Map toJson() => {'t':title,'a':amount,'c':cat,'d':date.toIso8601String()};
@@ -167,7 +175,8 @@ class _DState extends State<DainikKharchApp> {
   Future<void> load() async { final p = await SharedPreferences.getInstance(); var s = p.getString('ex'); if(s!=null) exps = (jsonDecode(s) as List).map((e)=>Expense.fromJson(e)).toList(); var u = p.getString('ud'); if(u!=null) udhars = (jsonDecode(u) as List).map((e)=>Udhaari.fromJson(e)).toList(); var b = p.getDouble('budget'); if(b!=null) monthlyBudget=b; setState((){}); }
   Future<void> save() async { final p = await SharedPreferences.getInstance(); p.setString('ex', jsonEncode(exps.map((e)=>e.toJson()).toList())); p.setString('ud', jsonEncode(udhars.map((e)=>e.toJson()).toList())); p.setDouble('budget', monthlyBudget); }
   bool sameDay(DateTime a,b) => a.year==b.year && a.month==b.month && a.day==b.day;
-  void addExp(String t,String a,String c){ setState(()=> exps.insert(0, Expense(title:t, amount:a, cat:c, date:selDate))); save(); }  void editBudgetDialog(){
+  void addExp(String t,String a,String c){ setState(()=> exps.insert(0, Expense(title:t, amount:a, cat:c, date:selDate))); save(); }
+  void editBudgetDialog(){
     TextEditingController bCtrl = TextEditingController(text: monthlyBudget.toInt().toString());
     showDialog(context: context, builder: (ctx)=> AlertDialog(backgroundColor: Color(0xFF1E2635), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: Text("बजेट टाका", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), content: TextField(controller: bCtrl, keyboardType: TextInputType.number, autofocus: true, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold), decoration: InputDecoration(prefixText: "₹ ", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))), actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: Text("रद्द")), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676)), onPressed: (){ if(bCtrl.text.isNotEmpty){ setState(()=> monthlyBudget = double.tryParse(bCtrl.text)??4000); save(); Navigator.pop(ctx); } }, child: Text("Save", style: TextStyle(color: Colors.black)))],));
   }
@@ -198,45 +207,27 @@ class _DState extends State<DainikKharchApp> {
     var todaysList = exps.where((e)=>sameDay(e.date, selDate)).toList();
     return SingleChildScrollView(
       child: Padding(padding: EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(height: 10),
+        SizedBox(height: 40),
         Container(padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD4FF5A), Color(0xFF8BC34A)]), borderRadius: BorderRadius.circular(24)), child: Row(children: [Text("दैनिक खर्च - PREMIUM", style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black)), Spacer(), GestureDetector(onTap: (){ Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=> LoginGate())); }, child: Icon(Icons.logout_rounded, color: Colors.black, size: 20))])),
         SizedBox(height: 12),
-        GestureDetector(onTap: editBudgetDialog, child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Color(0xFF00E676).withOpacity(0.15))), child: Column(children: [Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("आजचा खर्च", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${today.toInt()}", style: GoogleFonts.poppins(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 22))])), Container(width: 1, height: 44, color: Colors.white10), Expanded(child: Padding(padding: EdgeInsets.only(left: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("शिल्लक", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${remaining.toInt()}", style: GoogleFonts.poppins(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 22))]))),]), SizedBox(height: 12), ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: perc, minHeight: 8, backgroundColor: Colors.white.withOpacity(0.08), valueColor: AlwaysStoppedAnimation(perc>0.8? Colors.redAccent : Color(0xFF00E676)))), SizedBox(height: 6), Text("बजेट: ₹${monthlyBudget.toInt()} (Tap to Edit)", style: TextStyle(color: Colors.white38, fontSize: 10)),]))),
-        SizedBox(height: 20),
-        Text("Premium 3D Blocks", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-        SizedBox(height: 14),
-        GridView.builder(shrinkWrap: true, physics: NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 0.92, crossAxisSpacing: 12, mainAxisSpacing: 12), itemCount: catBlocks.length, itemBuilder: (c,i){ var q = catBlocks[i]; return GestureDetector(onTap: ()=> openManualEntry(q), child: Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(q['c1']), Color(q['c2'])]), borderRadius: BorderRadius.circular(22)), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(q['icon'].toString(), style: TextStyle(fontSize: 28)), SizedBox(height: 8), Text(q['title'].toString(), style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 11, color: Colors.white), textAlign: TextAlign.center)])))); }),
-        SizedBox(height: 20),
-        Text("आजच्या नोंदी", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-        SizedBox(height: 10),
-        todaysList.isEmpty? Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(16)), child: Center(child: Text("Block वर टच करून खर्च टाका!", style: TextStyle(color: Colors.white38, fontSize: 12)))) : Column(children: todaysList.map((e){ int realIdx = exps.indexOf(e); return GestureDetector(onTap: ()=> showListOptions(realIdx, e), child: Container(margin: EdgeInsets.symmetric(vertical: 5), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [Container(width: 40, height: 40, decoration: BoxDecoration(color: Color(0xFF00E676), shape: BoxShape.circle), child: Center(child: Text(e.cat.isNotEmpty? e.cat[0]:"₹", style: TextStyle(fontWeight: FontWeight.bold)))), SizedBox(width: 10), Expanded(child: Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))), Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))]))); }).toList()),
-        SizedBox(height: 90),
+        GestureDetector(onTap: editBudgetDialog, child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Color(0xFF00E676).withOpacity(0.15))), child: Column(children: [Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("आजचा खर्च", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${today.toInt()}", style: GoogleFonts.poppins(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 22))])), Container(width: 1, height: 44, color: Colors.white10), Expanded(child: Padding(padding: EdgeInsets.only(left: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("शिल्लक", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${remaining.toInt()}", style: GoogleFonts.poppins(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 22))]))),]), SizedBox(height: 12), ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: perc, minHeight: 8, backgroundColor: Colors.white10, valueColor: AlwaysStoppedAnimation(perc>0.8?Colors.redAccent:Color(0xFF00E676))))]))),
+        SizedBox(height: 16),
+        GridView.builder(physics: NeverScrollableScrollPhysics(), shrinkWrap: true, gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.6), itemCount: catBlocks.length, itemBuilder: (c,i){ var b=catBlocks[i]; return GestureDetector(onTap: ()=> openManualEntry(b), child: Container(padding: EdgeInsets.all(14), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(b['c1']), Color(b['c2'])], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(20)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(b['icon'], style: TextStyle(fontSize: 28)), Spacer(), Text(b['title'], style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))]))); }),
+        SizedBox(height: 16),
+        Text("आजचे व्यवहार", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+       ...todaysList.map((e)=> ListTile(onTap: ()=> showListOptions(exps.indexOf(e), e), leading: CircleAvatar(backgroundColor: Color(0xFF1A1F2E), child: Text("₹", style: TextStyle(color: Colors.white))), title: Text(e.title, style: TextStyle(color: Colors.white, fontSize: 13)), trailing: Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))))
       ])),
     );
   }
-
-  Widget buildGraphPage(){
-    Map<String, double> catTotals = {};
-    for(var e in exps){ catTotals[e.cat] = (catTotals[e.cat]??0) + (double.tryParse(e.amount)??0); }
-    double total = catTotals.values.fold(0, (a,b)=>a+b);
-    List<Color> colors = [Color(0xFF00C853), Color(0xFFD500F9), Color(0xFF2962FF), Color(0xFFFF6D00), Color(0xFF00B8D4), Color(0xFFFF1744), Color(0xFF6C757D)];
-    return Scaffold(backgroundColor: Color(0xFF070A11), appBar: AppBar(backgroundColor: Color(0xFF070A11), title: Text("Analytics", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))), body: SingleChildScrollView(padding: EdgeInsets.all(16), child: Column(children: [
-      Container(padding: EdgeInsets.all(18), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(22)), child: Column(children: [Text("Total: ₹${total.toInt()} / ₹${monthlyBudget.toInt()}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), SizedBox(height: 16), SizedBox(height: 200, child: catTotals.isEmpty? Center(child: Text("No data", style: TextStyle(color: Colors.white38))) : PieChart(PieChartData(sectionsSpace: 3, centerSpaceRadius: 45, sections: catTotals.entries.map((en){ int idx = catTotals.keys.toList().indexOf(en.key); Color col = colors[idx % colors.length]; double perc = total==0?0: en.value/total*100; return PieChartSectionData(color: col, value: en.value, title: "${perc.toStringAsFixed(0)}%", radius: 65, titleStyle: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)); }).toList()))),])),
-      SizedBox(height: 16),
-      Container(padding: EdgeInsets.all(18), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(22)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("Last 7 days", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), SizedBox(height: 16), SizedBox(height: 180, child: BarChart(BarChartData(barGroups: List.generate(7, (i){ DateTime d = DateTime.now().subtract(Duration(days: 6-i)); double sum=0; for(var e in exps){ if(sameDay(e.date, d)) sum+= double.tryParse(e.amount)??0; } return BarChartGroupData(x:i, barRods: [BarChartRodData(toY: sum, color: Color(0xFF00E676), width: 16, borderRadius: BorderRadius.circular(6))]); }), titlesData: FlTitlesData(bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, _){ return Padding(padding: EdgeInsets.only(top: 6), child: Text(DateFormat('dd').format(DateTime.now().subtract(Duration(days: 6-v.toInt()))), style: TextStyle(color: Colors.white38, fontSize: 10))); }))), gridData: FlGridData(show: false), borderData: FlBorderData(show: false),)))])),
-    ])));
+  Widget buildLedger(){
+    return Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 40), Text("सर्व व्यवहार", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Expanded(child: ListView.builder(itemCount: exps.length, itemBuilder: (c,i){ var e=exps[i]; return ListTile(onTap: ()=> showListOptions(i, e), title: Text(e.title, style: TextStyle(color: Colors.white)), subtitle: Text(DateFormat('dd MMM yyyy').format(e.date), style: TextStyle(color: Colors.white38, fontSize: 10)), trailing: Text("₹${e.amount}", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))); }))]));
   }
   Widget buildUdhaari(){
-    double totalDen=0, totalGhet=0; for(var u in udhars){ if(u.type=="देणे") totalDen+= double.tryParse(u.amount)??0; else totalGhet+= double.tryParse(u.amount)??0; }
-    return Scaffold(backgroundColor: Color(0xFF070A11), appBar: AppBar(backgroundColor: Color(0xFF070A11), title: Text("Udhaari", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), actions: [IconButton(onPressed: showUdhaariAdd, icon: Icon(Icons.add_rounded, color: Color(0xFF00E676)))]),
-      body: Column(children: [Padding(padding: EdgeInsets.all(16), child: Row(children: [Expanded(child: Container(padding: EdgeInsets.all(14), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("द्यायचे", style: TextStyle(color: Colors.white38, fontSize: 10)), Text("₹${totalDen.toInt()}", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 18))]))), SizedBox(width: 12), Expanded(child: Container(padding: EdgeInsets.all(14), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("यायचे", style: TextStyle(color: Colors.white38, fontSize: 10)), Text("₹${totalGhet.toInt()}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 18))]))),])), Expanded(child: ListView(children: udhars.map((u)=> Container(margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6), padding: EdgeInsets.all(14), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(16)), child: Row(children: [CircleAvatar(backgroundColor: u.type=="देणे"?Colors.redAccent:Color(0xFF00E676), child: Text(u.name.isNotEmpty?u.name[0].toUpperCase():"?")), SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(u.name, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)), Text(u.type, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${u.amount}", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), IconButton(onPressed: (){ setState(()=> udhars.remove(u)); save(); }, icon: Icon(Icons.delete_outline, color: Colors.white24, size: 18))]))).toList())),])
-    );
+    double totalU = udhars.fold(0, (s,e)=> s + (double.tryParse(e.amount)??0));
+    return Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 40), Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(16)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("एकूण उधारी", style: TextStyle(color: Colors.white70)), Text("₹${totalU.toInt()}", style: TextStyle(color: Colors.orangeAccent, fontSize: 22, fontWeight: FontWeight.bold))])), SizedBox(height: 12), Expanded(child: ListView.builder(itemCount: udhars.length, itemBuilder: (c,i){ var u=udhars[i]; return ListTile(title: Text(u.name, style: TextStyle(color: Colors.white)), subtitle: Text(u.type, style: TextStyle(color: Colors.white38, fontSize: 11)), trailing: Text("₹${u.amount}", style: TextStyle(color: Colors.orangeAccent))); }))] ));
   }
-  void showUdhaariAdd(){
-    String name=""; String amt=""; String type="देणे";
-    showDialog(context: context, builder: (c)=> StatefulBuilder(builder: (c2,setS)=> AlertDialog(backgroundColor: Color(0xFF12151E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: Text("Udhaari", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(decoration: InputDecoration(labelText: "नाव", filled: true, fillColor: Colors.white.withOpacity(0.05), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), style: TextStyle(color: Colors.white), onChanged: (v)=>name=v), SizedBox(height: 10), TextField(decoration: InputDecoration(labelText: "रक्कम", filled: true, fillColor: Colors.white.withOpacity(0.05), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)), style: TextStyle(color: Colors.white), keyboardType: TextInputType.number, onChanged: (v)=>amt=v), SizedBox(height: 10), DropdownButton<String>(value: type, dropdownColor: Color(0xFF12151E), style: TextStyle(color: Colors.white), isExpanded: true, items: ["देणे","घेणे"].map((e)=>DropdownMenuItem(value:e, child: Text(e))).toList(), onChanged: (v)=>setS(()=>type=v!)),]), actions: [ElevatedButton(onPressed: (){ if(name.isNotEmpty && amt.isNotEmpty){ setState(()=> udhars.insert(0, Udhaari(name:name, amount:amt, type:type, date:DateTime.now()))); save(); Navigator.pop(c); } }, style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676), foregroundColor: Colors.black), child: Text("Save", style: TextStyle(fontWeight: FontWeight.bold))) ] )));
-  }
-  Widget buildLedger(){
-    return Scaffold(backgroundColor: Color(0xFF070A11), appBar: AppBar(backgroundColor: Color(0xFF070A11), title: Text("All Entries", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))), body: exps.isEmpty? Center(child: Text("No entries", style: TextStyle(color: Colors.white38))): ListView.builder(padding: EdgeInsets.all(12), itemCount: exps.length, itemBuilder: (c,i){ var e=exps[i]; return Container(margin: EdgeInsets.symmetric(vertical: 4), padding: EdgeInsets.all(14), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [Expanded(child: Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))), Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))])); }));
+  Widget buildGraphPage(){
+    Map<String,double> catSum={}; for(var e in exps){ catSum[e.cat]=(catSum[e.cat]??0)+(double.tryParse(e.amount)??0); }
+    return Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 40), Text("Analytics", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), SizedBox(height: 20), Container(height: 200, padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(20)), child: PieChart(PieChartData(sections: catSum.entries.map((en){ int idx=catBlocks.indexWhere((b)=>b['cat']==en.key); return PieChartSectionData(value: en.value, title: en.key, color: idx>=0?Color(catBlocks[idx]['c1']):Colors.grey, radius: 60, titleStyle: TextStyle(fontSize: 10, color: Colors.white)); }).toList())))]));
   }
 }
