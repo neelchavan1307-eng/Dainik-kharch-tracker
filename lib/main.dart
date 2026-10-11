@@ -26,11 +26,17 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   List<int> enteredPattern = [];
   List<int> savedPattern = [];
   bool isSettingPattern = false;
-  String statusText = "Draw pattern or touch ORIGINAL sensor";
+  String statusText = "Original sensor la touch kara 👇";
   Offset? fingerPos;
   late AnimationController pulseCtrl;
 
-  @override void initState(){ super.initState(); pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 1200))..repeat(reverse: true); loadPattern(); }
+  @override void initState(){
+    super.initState();
+    pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 1200))..repeat(reverse: true);
+    loadPattern();
+    // App ughadlya barobar direct khara sensor cha light lagel!
+    WidgetsBinding.instance.addPostFrameCallback((_) => tryFingerprint());
+  }
   @override void dispose(){ pulseCtrl.dispose(); super.dispose(); }
 
   void loadPattern() async {
@@ -38,7 +44,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     String? pat = p.getString('userPattern_v2');
     if(pat!=null && pat.isNotEmpty){
       savedPattern = pat.split(',').map((e)=> int.parse(e)).toList();
-      setState(()=> statusText = "Pattern draw kara kinva khalchya sensor la touch kara");
+      setState(()=> statusText = "Pattern kinva Original Sensor 👇");
     } else {
       setState(()=> isSettingPattern = true);
       setState(()=> statusText = "Set pattern - Join 4 dots");
@@ -48,24 +54,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     final p = await SharedPreferences.getInstance();
     await p.setString('userPattern_v2', pat.join(','));
     HapticFeedback.heavyImpact();
-    setState(()=> savedPattern=pat); isSettingPattern=false; statusText="Pattern saved! Now draw it"; enteredPattern=[];
+    setState(()=> savedPattern=pat); isSettingPattern=false; statusText="Pattern saved!"; enteredPattern=[];
   }
 
-  // === 100% REAL FINGERPRINT - Fakt tumchach gheil - Dusryacha nahi! ===
   Future<void> tryFingerprint() async {
     try{
       bool canCheck = await auth.canCheckBiometrics;
       bool isSupported = await auth.isDeviceSupported();
       List<BiometricType> available = await auth.getAvailableBiometrics();
-      if(!isSupported ||!canCheck){ setState(()=> statusText="Device doesn't support fingerprint"); return; }
-      if(available.isEmpty){ setState(()=> statusText="Fingerprint not enrolled - Add in Settings"); return; }
+      if(!isSupported ||!canCheck){ setState(()=> statusText="Device doesn't support"); return; }
+      if(available.isEmpty){ setState(()=> statusText="Fingerprint not enrolled"); return; }
       bool didAuth = await auth.authenticate(
-        localizedReason: 'खर्च वही अनलॉक करण्यासाठी तुमचा खरा बोट ठेवा - Fakt tumchach chalanar!',
-        options: AuthenticationOptions(
-          biometricOnly: true, // Fakt khara fingerprint - PIN nahi!
-          stickyAuth: true,
-          useErrorDialogs: true
-        )
+        localizedReason: 'खर्च वही अनलॉक - Original sensor la bot theva',
+        options: AuthenticationOptions(biometricOnly: true, stickyAuth: true, useErrorDialogs: true)
       );
       if(didAuth){ HapticFeedback.heavyImpact(); widget.onSuccess(); }
     } catch(e){ setState(()=> statusText="Error: $e"); }
@@ -94,7 +95,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               Center(child: Container(width: 300, height: 340, decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Padding(padding: EdgeInsets.all(16), child: GestureDetector(
                 onPanStart: (d){ setState(()=> enteredPattern=[]); },
                 onPanUpdate: (d){ Size sz=Size(268, 308); int? idx=getDotIndex(d.localPosition, sz); if(idx!=null &&!enteredPattern.contains(idx)){ HapticFeedback.selectionClick(); setState(()=> enteredPattern.add(idx)); fingerPos=d.localPosition; } },
-                onPanEnd: (d){ setState(()=> fingerPos=null); if(isSettingPattern){ if(enteredPattern.length<4){ setState(()=> statusText="At least 4 dots needed!"); enteredPattern=[]; } } else { if(enteredPattern.length>=4){ if(savedPattern.isEmpty || enteredPattern.join(',')==savedPattern.join(',')){ widget.onSuccess(); } else { HapticFeedback.vibrate(); setState(()=> statusText="Wrong pattern! Try again"); Future.delayed(Duration(milliseconds: 400), ()=> setState(()=> enteredPattern=[])); } } } },
+                onPanEnd: (d){ setState(()=> fingerPos=null); if(isSettingPattern){ if(enteredPattern.length<4){ setState(()=> statusText="At least 4 dots!"); enteredPattern=[]; } } else { if(enteredPattern.length>=4){ if(savedPattern.isEmpty || enteredPattern.join(',')==savedPattern.join(',')){ widget.onSuccess(); } else { HapticFeedback.vibrate(); setState(()=> statusText="Wrong pattern!"); Future.delayed(Duration(milliseconds: 400), ()=> setState(()=> enteredPattern=[])); } } } },
                 child: CustomPaint(
                   painter: ModernPatternPainter(enteredPattern: enteredPattern, fingerPos: fingerPos),
                   child: GridView.builder(physics: NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 1), itemCount: 9, itemBuilder: (c,i){ bool sel=enteredPattern.contains(i); return Container(decoration: BoxDecoration(color: sel?Color(0xFF00E676):Color(0xFF1E2330), shape: BoxShape.circle, border: Border.all(color: sel?Color(0xFF00E676):Colors.white12, width: sel?2.5:1)), child: Center(child: Container(width: sel?12:6, height: sel?12:6, decoration: BoxDecoration(color: sel?Colors.black:Colors.white24, shape: BoxShape.circle)))); }),
@@ -107,23 +108,27 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               ]),
             ])),
           ),
-          // === CORRECTED LOCATION - EKDOM KHALI 25px ===
+          // === OPTION 2 - HIRAVA BUTTON GAYAB - FAKT ORIGINAL SENSOR ===
           Positioned(
-            bottom: 25, // Ithech badal kela - 75 hota aata 25 kela!
+            bottom: 25,
             left: 0, right: 0,
             child: Column(children: [
-              ScaleTransition(
-                scale: Tween(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: pulseCtrl, curve: Curves.easeInOut)),
-                child: GestureDetector(
-                  onTap: tryFingerprint,
-                  child: Stack(alignment: Alignment.center, children: [
-                    Container(width: 88, height: 88, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.35), width: 1.8))),
-                    Container(width: 58, height: 58, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E), border: Border.all(color: Color(0xFF00E676), width: 2.2), boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.6), blurRadius: 22)]), child: Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 28)),
-                  ]),
+              GestureDetector(
+                onTap: tryFingerprint,
+                child: Container(
+                  width: 120, height: 120,
+                  color: Colors.transparent,
+                  child: Center(child: Icon(Icons.touch_app, color: Colors.white12, size: 20)),
                 ),
               ),
-              SizedBox(height: 10),
-              GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)), child: Text("खरा Sensor ला Touch करा - Fakt tumchach", style: TextStyle(color: Colors.white70, fontSize: 10)))),
+              GestureDetector(
+                onTap: tryFingerprint,
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)),
+                  child: Text("खालच्या Original Sensor ला Touch करा 👇", style: TextStyle(color: Colors.white60, fontSize: 10))
+                ),
+              ),
             ]),
           ),
         ]),
@@ -210,24 +215,29 @@ class _DState extends State<DainikKharchApp> {
         SizedBox(height: 40),
         Container(padding: EdgeInsets.symmetric(horizontal: 18, vertical: 16), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD4FF5A), Color(0xFF8BC34A)]), borderRadius: BorderRadius.circular(24)), child: Row(children: [Text("दैनिक खर्च - PREMIUM", style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black)), Spacer(), GestureDetector(onTap: (){ Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=> LoginGate())); }, child: Icon(Icons.logout_rounded, color: Colors.black, size: 20))])),
         SizedBox(height: 12),
-        GestureDetector(onTap: editBudgetDialog, child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Color(0xFF00E676).withOpacity(0.15))), child: Column(children: [Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("आजचा खर्च", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${today.toInt()}", style: GoogleFonts.poppins(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 22))])), Container(width: 1, height: 44, color: Colors.white10), Expanded(child: Padding(padding: EdgeInsets.only(left: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("शिल्लक", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${remaining.toInt()}", style: GoogleFonts.poppins(color: Color(0xFF00E676), fontWeight: FontWeight.bold, fontSize: 22))]))),]), SizedBox(height: 12), ClipRRect(borderRadius: BorderRadius.circular(10), child: LinearProgressIndicator(value: perc, minHeight: 8, backgroundColor: Colors.white10, valueColor: AlwaysStoppedAnimation(perc>0.8?Colors.redAccent:Color(0xFF00E676))))]))),
+        GestureDetector(onTap: editBudgetDialog, child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Color(0xFF00E676).withOpacity(0.15))), child: Column(children: [Row(children: [Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("आजचा खर्च", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${today.toInt()}", style: GoogleFonts.poppins(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 22))])), Container(width: 1, height: 44, color: Colors.white10), Expanded(child: Padding(padding: EdgeInsets.only(left: 14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("बजेट", style: TextStyle(color: Colors.white54, fontSize: 11)), Text("₹${monthlyBudget.toInt()}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))]))),],), SizedBox(height: 10), LinearProgressIndicator(value: perc, backgroundColor: Colors.white10, color: Color(0xFF00E676), minHeight: 6, borderRadius: BorderRadius.circular(10)), SizedBox(height: 6), Text(remaining>=0? "₹${remaining.toInt()} उरले":"₹${remaining.abs().toInt()} जास्त", style: TextStyle(color: remaining>=0? Colors.white38 : Colors.redAccent, fontSize: 11))]))),
         SizedBox(height: 16),
-        GridView.builder(physics: NeverScrollableScrollPhysics(), shrinkWrap: true, gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.6), itemCount: catBlocks.length, itemBuilder: (c,i){ var b=catBlocks[i]; return GestureDetector(onTap: ()=> openManualEntry(b), child: Container(padding: EdgeInsets.all(14), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(b['c1']), Color(b['c2'])], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(20)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(b['icon'], style: TextStyle(fontSize: 28)), Spacer(), Text(b['title'], style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))]))); }),
+        GridView.builder(shrinkWrap: true, physics: NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.95), itemCount: catBlocks.length, itemBuilder: (c,i){ var b=catBlocks[i]; return GestureDetector(onTap: ()=> openManualEntry(b), child: Container(decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(b['c1']), Color(b['c2'])], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(18)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(b['icon'], style: TextStyle(fontSize: 28)), SizedBox(height: 6), Text(b['title'], style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12), textAlign: TextAlign.center)]))); }),
         SizedBox(height: 16),
-        Text("आजचे व्यवहार", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
-       ...todaysList.map((e)=> ListTile(onTap: ()=> showListOptions(exps.indexOf(e), e), leading: CircleAvatar(backgroundColor: Color(0xFF1A1F2E), child: Text("₹", style: TextStyle(color: Colors.white))), title: Text(e.title, style: TextStyle(color: Colors.white, fontSize: 13)), trailing: Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))))
+        Text("आजची यादी (${todaysList.length})", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+       ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
+        }).toList()
       ])),
     );
   }
   Widget buildLedger(){
-    return Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 40), Text("सर्व व्यवहार", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), Expanded(child: ListView.builder(itemCount: exps.length, itemBuilder: (c,i){ var e=exps[i]; return ListTile(onTap: ()=> showListOptions(i, e), title: Text(e.title, style: TextStyle(color: Colors.white)), subtitle: Text(DateFormat('dd MMM yyyy').format(e.date), style: TextStyle(color: Colors.white38, fontSize: 10)), trailing: Text("₹${e.amount}", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))); }))]));
+    Map<String, double> dayTotals = {};
+    for(var e in exps){ String k = DateFormat('dd MMM').format(e.date); dayTotals[k] = (dayTotals[k]??0) + (double.tryParse(e.amount)??0); }
+    return SafeArea(child: Padding(padding: EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(height: 10), Text("हिशेब", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)), Expanded(child: ListView(children: exps.map((e)=> Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(12)), child: Row(children: [Expanded(child: Text(e.title, style: TextStyle(color: Colors.white))), Text(DateFormat('dd/MM').format(e.date), style: TextStyle(color: Colors.white38, fontSize: 11)), SizedBox(width: 10), Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.bold))]))).toList()))])));
   }
   Widget buildUdhaari(){
-    double totalU = udhars.fold(0, (s,e)=> s + (double.tryParse(e.amount)??0));
-    return Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 40), Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(16)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("एकूण उधारी", style: TextStyle(color: Colors.white70)), Text("₹${totalU.toInt()}", style: TextStyle(color: Colors.orangeAccent, fontSize: 22, fontWeight: FontWeight.bold))])), SizedBox(height: 12), Expanded(child: ListView.builder(itemCount: udhars.length, itemBuilder: (c,i){ var u=udhars[i]; return ListTile(title: Text(u.name, style: TextStyle(color: Colors.white)), subtitle: Text(u.type, style: TextStyle(color: Colors.white38, fontSize: 11)), trailing: Text("₹${u.amount}", style: TextStyle(color: Colors.orangeAccent))); }))] ));
+    return SafeArea(child: Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 10), Text("उधारी", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)), SizedBox(height: 20), Text("उधारी लवकरच...", style: TextStyle(color: Colors.white38))])));
   }
   Widget buildGraphPage(){
-    Map<String,double> catSum={}; for(var e in exps){ catSum[e.cat]=(catSum[e.cat]??0)+(double.tryParse(e.amount)??0); }
-    return Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 40), Text("Analytics", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)), SizedBox(height: 20), Container(height: 200, padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(20)), child: PieChart(PieChartData(sections: catSum.entries.map((en){ int idx=catBlocks.indexWhere((b)=>b['cat']==en.key); return PieChartSectionData(value: en.value, title: en.key, color: idx>=0?Color(catBlocks[idx]['c1']):Colors.grey, radius: 60, titleStyle: TextStyle(fontSize: 10, color: Colors.white)); }).toList())))]));
+    Map<String, double> catTotals = {};
+    for(var e in exps){ catTotals[e.cat] = (catTotals[e.cat]??0) + (double.tryParse(e.amount)??0); }
+    List<PieChartSectionData> sections = catTotals.entries.map((en){ return PieChartSectionData(value: en.value, title: "${en.key}\n₹${en.value.toInt()}", radius: 70, titleStyle: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)); }).toList();
+    return SafeArea(child: Padding(padding: EdgeInsets.all(16), child: Column(children: [SizedBox(height: 10), Text("ग्राफ", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)), SizedBox(height: 30), if(sections.isEmpty) Text("Data नाही", style: TextStyle(color: Colors.white38)) else SizedBox(height: 300, child: PieChart(PieChartData(sections: sections, sectionsSpace: 2, centerSpaceRadius: 40)))])));
   }
 }
