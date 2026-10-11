@@ -26,57 +26,46 @@ jobs:
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
           cp "$ICON" assets/app_icon.png
+          # FIX 1: Pubspec fix
           python3 << 'PY'
           import pathlib
-          p = pathlib.Path("pubspec.yaml")
-          text = p.read_text()
-          # remove any old launcher blocks
-          lines = []
-          skip = False
-          for line in text.splitlines():
-              if "flutter_launcher_icons" in line and ":" in line:
-                  if line.strip().startswith("flutter_launcher_icons"):
-                      skip = True
+          p=pathlib.Path("pubspec.yaml")
+          t=p.read_text()
+          # clean old launcher
+          t="\n".join([l for l in t.splitlines() if "flutter_launcher_icons: ^0.13.1" not in l])
+          # remove old root config if exists
+          if 'image_path:' in t:
+              lines=[]
+              skip=False
+              for l in t.splitlines():
+                  if l.strip().startswith('flutter_launcher_icons:') and not l.startswith(' '):
+                      skip=True
                       continue
-                  if "flutter_launcher_icons:" in line and line.strip().startswith("flutter_launcher_icons:") is False:
-                      # dependency under dev_dependencies
-                      continue
-              if skip:
-                  if line.startswith(" ") or line.startswith("\t"):
-                      if "android:" in line or "image_path:" in line or "min_sdk" in line:
+                  if skip:
+                      if l.strip().startswith('android:') or l.strip().startswith('image_path:') or l.strip().startswith('min_sdk'):
                           continue
-                      else:
-                          # still indented part of block
-                          if line.strip().startswith("android") or line.strip().startswith("image_path") or line.strip().startswith("min_sdk"):
-                              continue
-                  skip = False
-              # skip duplicate dep
-              if line.strip() == 'flutter_launcher_icons: ^0.13.1':
-                  continue
-              lines.append(line)
-          text = "\n".join(lines)
-          # add dev dep
-          if "flutter_launcher_icons:" not in text or "dev_dependencies:" in text:
-              if "dev_dependencies:" in text:
-                  text = text.replace("dev_dependencies:", "dev_dependencies:\n  flutter_launcher_icons: ^0.13.1")
-              else:
-                  text += "\ndev_dependencies:\n  flutter_launcher_icons: ^0.13.1\n"
-          # add config at root - ensure blank line before
-          if "flutter_launcher_icons:" not in text.split("dev_dependencies:")[-1] or text.count("flutter_launcher_icons:") < 2:
-              # add root config only if not already added as root (second occurrence)
-              if text.count('image_path: "assets/app_icon.png"') == 0:
-                  text += "\nflutter_launcher_icons:\n  android: \"launcher_icon\"\n  image_path: \"assets/app_icon.png\"\n  min_sdk_android: 21\n"
-          p.write_text(text)
-          print(p.read_text()[-500:])
+                      skip=False
+                  lines.append(l)
+              t="\n".join(lines)
+          if "dev_dependencies:" in t:
+              if "flutter_launcher_icons" not in t:
+                  t=t.replace("dev_dependencies:", "dev_dependencies:\n  flutter_launcher_icons: ^0.13.1")
+          else:
+              t+="\ndev_dependencies:\n  flutter_launcher_icons: ^0.13.1\n"
+          t+="\nflutter_launcher_icons:\n  android: \"launcher_icon\"\n  image_path: \"assets/app_icon.png\"\n  min_sdk_android: 21\n"
+          p.write_text(t)
           PY
-      - name: Build with Icon
+          # FIX 2: Add Fingerprint Permission in AndroidManifest
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />\n    <uses-permission android:name="android.permission.USE_BIOMETRICS" />' $MANIFEST
+          cat $MANIFEST
+      - name: Build with Icon + Biometric
         run: |
-          cat pubspec.yaml
           flutter pub get
           dart run flutter_launcher_icons
           flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dainik-Kharch-Warli-Icon-FINAL
+          name: Dainik-Kharch-Warli-Fingerprint-FIXED
           path: build/app/outputs/flutter-apk/app-release.apk
