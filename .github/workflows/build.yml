@@ -18,8 +18,6 @@ jobs:
       - name: Setup Icon and Android
         run: |
           ICON=$(ls IMG*.jpg 2>/dev/null | head -1)
-          if [ -z "$ICON" ]; then ICON=$(ls *.png *.jpg 2>/dev/null | head -1); fi
-          echo "Icon: $ICON"
           cp pubspec.yaml /tmp/p.yaml
           cp lib/main.dart /tmp/m.dart
           rm -rf android
@@ -27,28 +25,58 @@ jobs:
           cp /tmp/p.yaml pubspec.yaml
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
-          cp "$ICON" assets/app_icon.png || true
-          # Fix duplicate dev_dependencies issue
-          sed -i '/flutter_launcher_icons/d' pubspec.yaml
-          sed -i '/^flutter_launcher_icons:/,/min_sdk_android/d' pubspec.yaml
-          if grep -q "dev_dependencies:" pubspec.yaml; then
-            echo "  flutter_launcher_icons: ^0.13.1" >> pubspec.yaml
-          else
-            echo "dev_dependencies:" >> pubspec.yaml
-            echo "  flutter_launcher_icons: ^0.13.1" >> pubspec.yaml
-          fi
-          echo "" >> pubspec.yaml
-          echo "flutter_launcher_icons:" >> pubspec.yaml
-          echo "  android: \"launcher_icon\"" >> pubspec.yaml
-          echo "  image_path: \"assets/app_icon.png\"" >> pubspec.yaml
-          echo "  min_sdk_android: 21" >> pubspec.yaml
+          cp "$ICON" assets/app_icon.png
+          python3 << 'PY'
+          import pathlib
+          p = pathlib.Path("pubspec.yaml")
+          text = p.read_text()
+          # remove any old launcher blocks
+          lines = []
+          skip = False
+          for line in text.splitlines():
+              if "flutter_launcher_icons" in line and ":" in line:
+                  if line.strip().startswith("flutter_launcher_icons"):
+                      skip = True
+                      continue
+                  if "flutter_launcher_icons:" in line and line.strip().startswith("flutter_launcher_icons:") is False:
+                      # dependency under dev_dependencies
+                      continue
+              if skip:
+                  if line.startswith(" ") or line.startswith("\t"):
+                      if "android:" in line or "image_path:" in line or "min_sdk" in line:
+                          continue
+                      else:
+                          # still indented part of block
+                          if line.strip().startswith("android") or line.strip().startswith("image_path") or line.strip().startswith("min_sdk"):
+                              continue
+                  skip = False
+              # skip duplicate dep
+              if line.strip() == 'flutter_launcher_icons: ^0.13.1':
+                  continue
+              lines.append(line)
+          text = "\n".join(lines)
+          # add dev dep
+          if "flutter_launcher_icons:" not in text or "dev_dependencies:" in text:
+              if "dev_dependencies:" in text:
+                  text = text.replace("dev_dependencies:", "dev_dependencies:\n  flutter_launcher_icons: ^0.13.1")
+              else:
+                  text += "\ndev_dependencies:\n  flutter_launcher_icons: ^0.13.1\n"
+          # add config at root - ensure blank line before
+          if "flutter_launcher_icons:" not in text.split("dev_dependencies:")[-1] or text.count("flutter_launcher_icons:") < 2:
+              # add root config only if not already added as root (second occurrence)
+              if text.count('image_path: "assets/app_icon.png"') == 0:
+                  text += "\nflutter_launcher_icons:\n  android: \"launcher_icon\"\n  image_path: \"assets/app_icon.png\"\n  min_sdk_android: 21\n"
+          p.write_text(text)
+          print(p.read_text()[-500:])
+          PY
       - name: Build with Icon
         run: |
+          cat pubspec.yaml
           flutter pub get
           dart run flutter_launcher_icons
           flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dainik-Kharch-APK-Warli-Icon-FIXED
+          name: Dainik-Kharch-Warli-Icon-FINAL
           path: build/app/outputs/flutter-apk/app-release.apk
