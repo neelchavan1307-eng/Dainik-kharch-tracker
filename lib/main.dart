@@ -26,11 +26,11 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   List<int> enteredPattern = [];
   List<int> savedPattern = [];
   bool isSettingPattern = false;
-  String statusText = "Unlock your diary";
+  String statusText = "Draw pattern or use Fingerprint";
   Offset? fingerPos;
   late AnimationController pulseCtrl;
 
-  @override void initState(){ super.initState(); pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 1000))..repeat(reverse: true); loadPattern(); }
+  @override void initState(){ super.initState(); pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 1200))..repeat(reverse: true); loadPattern(); }
   @override void dispose(){ pulseCtrl.dispose(); super.dispose(); }
 
   void loadPattern() async {
@@ -38,65 +38,82 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     String? pat = p.getString('userPattern_v2');
     if(pat!=null && pat.isNotEmpty){
       savedPattern = pat.split(',').map((e)=> int.parse(e)).toList();
-      setState(()=> statusText = "Draw pattern or use Fingerprint");
+      setState(()=> statusText = "Draw pattern or touch bottom scanner");
     } else {
       setState(()=> isSettingPattern = true);
-      setState(()=> statusText = "Set new pattern - Join 4 dots");
+      setState(()=> statusText = "Set pattern - Join 4 dots");
     }
   }
   void savePattern(List<int> pat) async {
     final p = await SharedPreferences.getInstance();
     await p.setString('userPattern_v2', pat.join(','));
     HapticFeedback.heavyImpact();
-    setState(()=> savedPattern=pat);
-    setState(()=> isSettingPattern=false);
-    setState(()=> statusText="Pattern saved! Draw again to unlock");
-    setState(()=> enteredPattern=[]);
+    setState(()=> savedPattern=pat); isSettingPattern=false; statusText="Pattern saved! Now draw it"; enteredPattern=[];
   }
   Future<void> tryFingerprint() async {
     try{
-      bool isSupported = await auth.isDeviceSupported();
-      if(!isSupported){ setState(()=> statusText="Fingerprint not supported"); return; }
-      bool didAuth = await auth.authenticate(localizedReason: 'Unlock Kharch Vahi', options: AuthenticationOptions(biometricOnly: false, stickyAuth: true, useErrorDialogs: true));
+      bool ok = await auth.isDeviceSupported();
+      if(!ok){ setState(()=> statusText="Fingerprint not supported"); return; }
+      bool didAuth = await auth.authenticate(localizedReason: 'Touch the bottom scanner - like lock screen', options: AuthenticationOptions(biometricOnly: false, stickyAuth: true, useErrorDialogs: true));
       if(didAuth){ HapticFeedback.heavyImpact(); widget.onSuccess(); }
-    } on PlatformException catch(_){ setState(()=> statusText="Enable Fingerprint in Settings"); }
+    } catch(_){ setState(()=> statusText="Enable Fingerprint in Settings"); }
   }
   int? getDotIndex(Offset pos, Size size){
     double cellW = size.width/3; double cellH = size.height/3;
-    for(int i=0;i<9;i++){ int row = i ~/ 3; int col = i % 3; Offset center = Offset(col*cellW + cellW/2, row*cellH + cellH/2); if((pos - center).distance < 40) return i; }
+    for(int i=0;i<9;i++){ int r=i~/3; int c=i%3; Offset cen=Offset(c*cellW+cellW/2, r*cellH+cellH/2); if((pos-cen).distance<45) return i; }
     return null;
   }
 
   @override Widget build(BuildContext context){
     return Scaffold(
       backgroundColor: Color(0xFF070A11),
-      body: Stack(children: [
-        Positioned(top: -100, left: -80, child: Container(width: 250, height: 250, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF00E676).withOpacity(0.15)))),
-        Center(child: Padding(padding: EdgeInsets.all(20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(padding: EdgeInsets.all(2), decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color(0xFF00E676), Color(0xFFD4FF5A)])), child: Container(padding: EdgeInsets.all(18), decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E)), child: Icon(Icons.account_balance_wallet_rounded, size: 38, color: Color(0xFF00E676)))),
-          SizedBox(height: 16),
-          Text("खर्चाची नोंद वही", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 24)),
-          SizedBox(height: 6),
-          Container(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.07), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)), child: Text(statusText, style: TextStyle(color: isSettingPattern? Color(0xFFD4FF5A):Colors.white54, fontSize: 11, fontWeight: FontWeight.w600))),
-          SizedBox(height: 28),
-          Container(width: 280, height: 280, decoration: BoxDecoration(color: Color(0xFF12151E).withOpacity(0.8), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white.withOpacity(0.06))), child: Padding(padding: EdgeInsets.all(20), child: GestureDetector(
-            onPanStart: (d){ setState(()=> enteredPattern=[]); },
-            onPanUpdate: (d){ Size sz = Size(240,240); int? idx = getDotIndex(d.localPosition, sz); if(idx!=null &&!enteredPattern.contains(idx)){ HapticFeedback.selectionClick(); setState(()=> enteredPattern.add(idx)); fingerPos = d.localPosition; } },
-            onPanEnd: (d){ setState(()=> fingerPos=null); if(isSettingPattern){ if(enteredPattern.length<4){ setState(()=> statusText="At least 4 dots needed!"); enteredPattern=[]; } } else { if(enteredPattern.length>=4){ if(savedPattern.isEmpty || enteredPattern.join(',')==savedPattern.join(',')){ HapticFeedback.heavyImpact(); widget.onSuccess(); } else { HapticFeedback.vibrate(); setState(()=> statusText="Wrong pattern! Try again"); Future.delayed(Duration(milliseconds: 400), ()=> setState(()=> enteredPattern=[])); } } } },
-            child: CustomPaint(
-              painter: ModernPatternPainter(enteredPattern: enteredPattern, fingerPos: fingerPos),
-              child: GridView.builder(physics: NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 18, mainAxisSpacing: 18), itemCount: 9, itemBuilder: (c,i){ bool sel = enteredPattern.contains(i); return AnimatedContainer(duration: Duration(milliseconds: 200), decoration: BoxDecoration(color: sel? Color(0xFF00E676):Color(0xFF1E2330), shape: BoxShape.circle, border: Border.all(color: sel? Color(0xFF00E676):Colors.white.withOpacity(0.08), width: sel?2.5:1)), child: Center(child: Container(width: sel?10:6, height: sel?10:6, decoration: BoxDecoration(color: sel? Colors.black:Colors.white24, shape: BoxShape.circle)))); }),
-            ),
-          ))),
-          SizedBox(height: 18),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            TextButton(onPressed: ()=> setState(()=> enteredPattern=[]), child: Text("Clear", style: TextStyle(color: Colors.white38, fontSize: 12))),
-            if(isSettingPattern && enteredPattern.length>=4)...[SizedBox(width: 10), ElevatedButton(onPressed: ()=> savePattern(enteredPattern), style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: Text("Save Pattern", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)))],
-          ]),
-          SizedBox(height: 10),
-          ScaleTransition(scale: Tween(begin: 1.0, end: 1.05).animate(pulseCtrl), child: GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 30, vertical: 16), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(50), border: Border.all(color: Color(0xFF00E676).withOpacity(0.3), width: 1)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 24), SizedBox(width: 12), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("Fingerprint Unlock", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)), Text("Touch the sensor", style: TextStyle(color: Colors.white38, fontSize: 9))])])))),
-        ]))),
-      ]),
+      body: SafeArea(
+        child: Stack(children: [
+          Positioned(top: -60, left: -50, child: Container(width: 180, height: 180, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF00E676).withOpacity(0.10)))),
+          SingleChildScrollView(
+            child: Padding(padding: EdgeInsets.only(bottom: 130, top: 20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Center(child: Container(padding: EdgeInsets.all(2), decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color(0xFF00E676), Color(0xFFD4FF5A)])), child: Container(padding: EdgeInsets.all(14), decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E)), child: Icon(Icons.wallet, size: 32, color: Color(0xFF00E676))))),
+              SizedBox(height: 12),
+              Text("खर्चाची नोंद वही", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 22)),
+              SizedBox(height: 6),
+              Container(padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6), decoration: BoxDecoration(color: Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(20)), child: Text(statusText, style: TextStyle(color: Colors.white70, fontSize: 11))),
+              SizedBox(height: 20),
+              Center(child: Container(width: 300, height: 340, decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(28), border: Border.all(color: Colors.white.withOpacity(0.08))), child: Padding(padding: EdgeInsets.all(16), child: GestureDetector(
+                onPanStart: (d){ setState(()=> enteredPattern=[]); },
+                onPanUpdate: (d){ Size sz=Size(268, 308); int? idx=getDotIndex(d.localPosition, sz); if(idx!=null &&!enteredPattern.contains(idx)){ HapticFeedback.selectionClick(); setState(()=> enteredPattern.add(idx)); fingerPos=d.localPosition; } },
+                onPanEnd: (d){ setState(()=> fingerPos=null); if(isSettingPattern){ if(enteredPattern.length<4){ setState(()=> statusText="At least 4 dots needed!"); enteredPattern=[]; } } else { if(enteredPattern.length>=4){ if(savedPattern.isEmpty || enteredPattern.join(',')==savedPattern.join(',')){ widget.onSuccess(); } else { HapticFeedback.vibrate(); setState(()=> statusText="Wrong pattern! Try again"); Future.delayed(Duration(milliseconds: 400), ()=> setState(()=> enteredPattern=[])); } } } },
+                child: CustomPaint(
+                  painter: ModernPatternPainter(enteredPattern: enteredPattern, fingerPos: fingerPos),
+                  child: GridView.builder(physics: NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 14, mainAxisSpacing: 14, childAspectRatio: 1), itemCount: 9, itemBuilder: (c,i){ bool sel=enteredPattern.contains(i); return Container(decoration: BoxDecoration(color: sel?Color(0xFF00E676):Color(0xFF1E2330), shape: BoxShape.circle, border: Border.all(color: sel?Color(0xFF00E676):Colors.white12, width: sel?2.5:1)), child: Center(child: Container(width: sel?12:6, height: sel?12:6, decoration: BoxDecoration(color: sel?Colors.black:Colors.white24, shape: BoxShape.circle)))); }),
+                ),
+              )))),
+              SizedBox(height: 12),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                TextButton(onPressed: ()=> setState(()=> enteredPattern=[]), child: Text("Clear", style: TextStyle(color: Colors.white30, fontSize: 12))),
+                if(isSettingPattern && enteredPattern.length>=4) ElevatedButton(onPressed: ()=> savePattern(enteredPattern), style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))), child: Text("Save Pattern", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
+              ]),
+            ])),
+          ),
+          Positioned(
+            bottom: 15, left: 0, right: 0,
+            child: Column(children: [
+              ScaleTransition(
+                scale: Tween(begin: 1.0, end: 1.20).animate(CurvedAnimation(parent: pulseCtrl, curve: Curves.easeInOut)),
+                child: GestureDetector(
+                  onTap: tryFingerprint,
+                  child: Stack(alignment: Alignment.center, children: [
+                    Container(width: 88, height: 88, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(0xFF00E676).withOpacity(0.12)))),
+                    Container(width: 68, height: 68, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(0xFF00E676).withOpacity(0.25)))),
+                    Container(width: 52, height: 52, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E), border: Border.all(color: Color(0xFF00E676), width: 1.5), boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.4), blurRadius: 18)]), child: Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 26)),
+                  ]),
+                ),
+              ),
+              SizedBox(height: 8),
+              GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(24), border: Border.all(color: Color(0xFF00E676).withOpacity(0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.fingerprint, size: 14, color: Color(0xFF00E676)), SizedBox(width: 6), Text("Fingerprint Unlock", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), SizedBox(width: 6), Text("• Touch bottom", style: TextStyle(color: Colors.white38, fontSize: 10))]))),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 }
