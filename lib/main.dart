@@ -26,7 +26,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   List<int> enteredPattern = [];
   List<int> savedPattern = [];
   bool isSettingPattern = false;
-  String statusText = "Draw pattern or use Fingerprint";
+  String statusText = "Draw pattern or touch ORIGINAL sensor";
   Offset? fingerPos;
   late AnimationController pulseCtrl;
 
@@ -38,7 +38,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     String? pat = p.getString('userPattern_v2');
     if(pat!=null && pat.isNotEmpty){
       savedPattern = pat.split(',').map((e)=> int.parse(e)).toList();
-      setState(()=> statusText = "Draw pattern or touch bottom scanner");
+      setState(()=> statusText = "Pattern draw kara kinva khalchya sensor la touch kara");
     } else {
       setState(()=> isSettingPattern = true);
       setState(()=> statusText = "Set pattern - Join 4 dots");
@@ -50,14 +50,19 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     HapticFeedback.heavyImpact();
     setState(()=> savedPattern=pat); isSettingPattern=false; statusText="Pattern saved! Now draw it"; enteredPattern=[];
   }
+
   Future<void> tryFingerprint() async {
     try{
-      bool ok = await auth.isDeviceSupported();
-      if(!ok){ setState(()=> statusText="Fingerprint not supported"); return; }
-      bool didAuth = await auth.authenticate(localizedReason: 'Touch the bottom scanner - like lock screen', options: AuthenticationOptions(biometricOnly: false, stickyAuth: true, useErrorDialogs: true));
+      bool canCheck = await auth.canCheckBiometrics;
+      bool isSupported = await auth.isDeviceSupported();
+      List<BiometricType> available = await auth.getAvailableBiometrics();
+      if(!isSupported ||!canCheck){ setState(()=> statusText="Device doesn't support fingerprint"); return; }
+      if(available.isEmpty){ setState(()=> statusText="Fingerprint not enrolled - Add in Settings"); return; }
+      bool didAuth = await auth.authenticate(localizedReason: 'खर्च वही अनलॉक करण्यासाठी बोट ठेवा', options: AuthenticationOptions(biometricOnly: true, stickyAuth: true, useErrorDialogs: true));
       if(didAuth){ HapticFeedback.heavyImpact(); widget.onSuccess(); }
-    } catch(_){ setState(()=> statusText="Enable Fingerprint in Settings"); }
+    } catch(e){ setState(()=> statusText="Error: $e"); }
   }
+
   int? getDotIndex(Offset pos, Size size){
     double cellW = size.width/3; double cellH = size.height/3;
     for(int i=0;i<9;i++){ int r=i~/3; int c=i%3; Offset cen=Offset(c*cellW+cellW/2, r*cellH+cellH/2); if((pos-cen).distance<45) return i; }
@@ -71,7 +76,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         child: Stack(children: [
           Positioned(top: -60, left: -50, child: Container(width: 180, height: 180, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF00E676).withOpacity(0.10)))),
           SingleChildScrollView(
-            child: Padding(padding: EdgeInsets.only(bottom: 130, top: 20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            child: Padding(padding: EdgeInsets.only(bottom: 180, top: 20), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Center(child: Container(padding: EdgeInsets.all(2), decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color(0xFF00E676), Color(0xFFD4FF5A)])), child: Container(padding: EdgeInsets.all(14), decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E)), child: Icon(Icons.wallet, size: 32, color: Color(0xFF00E676))))),
               SizedBox(height: 12),
               Text("खर्चाची नोंद वही", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 22)),
@@ -95,21 +100,20 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             ])),
           ),
           Positioned(
-            bottom: 15, left: 0, right: 0,
+            bottom: 75, left: 0, right: 0,
             child: Column(children: [
               ScaleTransition(
-                scale: Tween(begin: 1.0, end: 1.20).animate(CurvedAnimation(parent: pulseCtrl, curve: Curves.easeInOut)),
+                scale: Tween(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: pulseCtrl, curve: Curves.easeInOut)),
                 child: GestureDetector(
                   onTap: tryFingerprint,
                   child: Stack(alignment: Alignment.center, children: [
-                    Container(width: 88, height: 88, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(0xFF00E676).withOpacity(0.12)))),
-                    Container(width: 68, height: 68, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(0xFF00E676).withOpacity(0.25)))),
+                    Container(width: 78, height: 78, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.2))),
                     Container(width: 52, height: 52, decoration: BoxDecoration(shape: BoxShape.circle, color: Color(0xFF12151E), border: Border.all(color: Color(0xFF00E676), width: 1.5), boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.4), blurRadius: 18)]), child: Icon(Icons.fingerprint_rounded, color: Color(0xFF00E676), size: 26)),
                   ]),
                 ),
               ),
-              SizedBox(height: 8),
-              GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 18, vertical: 8), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(24), border: Border.all(color: Color(0xFF00E676).withOpacity(0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.fingerprint, size: 14, color: Color(0xFF00E676)), SizedBox(width: 6), Text("Fingerprint Unlock", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)), SizedBox(width: 6), Text("• Touch bottom", style: TextStyle(color: Colors.white38, fontSize: 10))]))),
+              SizedBox(height: 10),
+              GestureDetector(onTap: tryFingerprint, child: Container(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6), decoration: BoxDecoration(color: Color(0xFF1A1F2E), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white12)), child: Text("Touch ORIGINAL Sensor Below", style: TextStyle(color: Colors.white60, fontSize: 10)))),
             ]),
           ),
         ]),
