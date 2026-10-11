@@ -15,7 +15,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Setup Icon and Android
+      - name: Setup Icon + Original Fingerprint Restore
         run: |
           ICON=$(ls IMG*.jpg 2>/dev/null | head -1)
           cp pubspec.yaml /tmp/p.yaml
@@ -26,40 +26,35 @@ jobs:
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
           cp "$ICON" assets/app_icon.png
-          # FIX 1: Pubspec fix
           python3 << 'PY'
-          import pathlib
+          import pathlib, glob, os
+          # Fix pubspec for icon only
           p=pathlib.Path("pubspec.yaml")
           t=p.read_text()
-          # clean old launcher
-          t="\n".join([l for l in t.splitlines() if "flutter_launcher_icons: ^0.13.1" not in l])
-          # remove old root config if exists
-          if 'image_path:' in t:
-              lines=[]
+          t="\n".join([l for l in t.splitlines() if "flutter_launcher_icons: ^0.13.1" not in l and "image_path:" not in l and 'android: "launcher_icon"' not in l and "min_sdk_android" not in l])
+          # remove old root block
+          lines=[]; skip=False
+          for l in t.splitlines():
+              if l.strip().startswith("flutter_launcher_icons:") and not l.startswith(" "):
+                  skip=True; continue
+              if skip and l.startswith("  "): continue
               skip=False
-              for l in t.splitlines():
-                  if l.strip().startswith('flutter_launcher_icons:') and not l.startswith(' '):
-                      skip=True
-                      continue
-                  if skip:
-                      if l.strip().startswith('android:') or l.strip().startswith('image_path:') or l.strip().startswith('min_sdk'):
-                          continue
-                      skip=False
-                  lines.append(l)
-              t="\n".join(lines)
-          if "dev_dependencies:" in t:
-              if "flutter_launcher_icons" not in t:
-                  t=t.replace("dev_dependencies:", "dev_dependencies:\n  flutter_launcher_icons: ^0.13.1")
-          else:
+              lines.append(l)
+          t="\n".join(lines)
+          if "dev_dependencies:" not in t:
               t+="\ndev_dependencies:\n  flutter_launcher_icons: ^0.13.1\n"
+          elif "flutter_launcher_icons" not in t:
+              t=t.replace("dev_dependencies:", "dev_dependencies:\n  flutter_launcher_icons: ^0.13.1")
           t+="\nflutter_launcher_icons:\n  android: \"launcher_icon\"\n  image_path: \"assets/app_icon.png\"\n  min_sdk_android: 21\n"
           p.write_text(t)
+          # FORCE FragmentActivity - Hach khara fix aahe
+          kt_path = "android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt"
+          os.makedirs(os.path.dirname(kt_path), exist_ok=True)
+          pathlib.Path(kt_path).write_text("package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n")
+          print("Fixed MainActivity to FlutterFragmentActivity")
           PY
-          # FIX 2: Add Fingerprint Permission in AndroidManifest
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />\n    <uses-permission android:name="android.permission.USE_BIOMETRICS" />' $MANIFEST
-          cat $MANIFEST
-      - name: Build with Icon + Biometric
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />' android/app/src/main/AndroidManifest.xml
+      - name: Build
         run: |
           flutter pub get
           dart run flutter_launcher_icons
@@ -67,5 +62,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dainik-Kharch-Warli-Fingerprint-FIXED
+          name: Dainik-Kharch-Original-Fingerprint-Restored
           path: build/app/outputs/flutter-apk/app-release.apk
