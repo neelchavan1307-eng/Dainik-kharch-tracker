@@ -15,12 +15,18 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Fix MainActivity
+      - name: Deep Clean and Rebuild Android v2
         run: |
+          cp pubspec.yaml /tmp/my_pubspec.yaml
+          cp lib/main.dart /tmp/my_main.dart
+          rm -rf android
+          flutter create --project-name dainik_kharch_tracker --org com.example --platforms android .
+          cp /tmp/my_pubspec.yaml pubspec.yaml
+          cp /tmp/my_main.dart lib/main.dart
+          sed -i 's/<manifest/<manifest xmlns:android="http:\/\/schemas.android.com\/apk\/res\/android">\n    <uses-permission android:name="android.permission.USE_BIOMETRIC" \/>\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" \/>/' android/app/src/main/AndroidManifest.xml || true
           mkdir -p android/app/src/main/kotlin/com/example/dainik_kharch_tracker
           printf 'package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n' > android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt
-      - name: Install deps
-        run: flutter pub get
+          flutter pub get
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
