@@ -1,16 +1,25 @@
-name: dainik_kharch
-description: Marathi Daily Expense Tracker
+name: kharchachi_nond_vahi
+description: "खर्चाची नोंद वही - आपला खर्च, आपला हिशोब. Fingerprint + Pattern Lock + Graph + Premium 3D"
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+10
+
 environment:
-  sdk: ">=3.2.0 <4.0.0"
+  sdk: ">=3.0.0 <4.0.0"
+
 dependencies:
   flutter:
     sdk: flutter
-  intl: ^0.19.0
-  fl_chart: ^0.69.0
-  google_fonts: ^6.2.1
+  cupertino_icons: ^1.0.2
+  intl: any
+  fl_chart: ^0.68.0
+  google_fonts: ^6.1.0
   shared_preferences: ^2.2.2
-  cupertino_icons: ^1.0.7
+  local_auth: ^2.1.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
 flutter:
   uses-material-design: true
