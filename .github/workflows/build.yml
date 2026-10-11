@@ -7,35 +7,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-
       - name: Fix Project for First Try Green
         run: |
-          # 1. Tujha custom code backup ghe
-          cp pubspec.yaml /tmp/my_pubspec.yaml || echo "no pubspec"
-          cp lib/main.dart /tmp/my_main.dart || echo "no main"
-          
-          # 2. Purna Flutter project banav (android folder yeil)
-          flutter create . --project-name dainik_kharch --platforms android --overwrite
-          
-          # 3. Tujha Khara Code Parat Tak
+          cp pubspec.yaml /tmp/my_pubspec.yaml
+          cp lib/main.dart /tmp/my_main.dart
+          flutter create --project-name dainik_kharch_tracker --platforms android --overwrite
           cp /tmp/my_pubspec.yaml pubspec.yaml
           cp /tmp/my_main.dart lib/main.dart
-          
-          # 4. Packages ghe
+          mkdir -p android/app/src/main/kotlin/com/example/dainik_kharch_tracker
+          echo 'package com.example.dainik_kharch_tracker
+          import io.flutter.embedding.android.FlutterFragmentActivity
+          class MainActivity: FlutterFragmentActivity()' > android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt
           flutter pub get
-
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
