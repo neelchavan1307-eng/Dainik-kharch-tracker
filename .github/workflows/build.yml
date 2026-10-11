@@ -2,6 +2,7 @@ name: Build Dainik Kharch APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,16 +15,12 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Fix Project for First Try Green
+      - name: Fix MainActivity
         run: |
-          cp pubspec.yaml /tmp/my_pubspec.yaml
-          cp lib/main.dart /tmp/my_main.dart
-          flutter create --project-name dainik_kharch_tracker --platforms android --overwrite
-          cp /tmp/my_pubspec.yaml pubspec.yaml
-          cp /tmp/my_main.dart lib/main.dart
           mkdir -p android/app/src/main/kotlin/com/example/dainik_kharch_tracker
           printf 'package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n' > android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt
-          flutter pub get
+      - name: Install deps
+        run: flutter pub get
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
