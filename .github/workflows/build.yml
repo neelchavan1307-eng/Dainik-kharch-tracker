@@ -18,6 +18,8 @@ jobs:
       - name: Setup Icon and Android
         run: |
           ICON=$(ls IMG*.jpg 2>/dev/null | head -1)
+          if [ -z "$ICON" ]; then ICON=$(ls *.png *.jpg 2>/dev/null | head -1); fi
+          echo "Icon: $ICON"
           cp pubspec.yaml /tmp/p.yaml
           cp lib/main.dart /tmp/m.dart
           rm -rf android
@@ -25,20 +27,28 @@ jobs:
           cp /tmp/p.yaml pubspec.yaml
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
-          cp "$ICON" assets/app_icon.png || cp *.jpg assets/app_icon.png || true
-          echo 'dev_dependencies:' >> pubspec.yaml
-          echo '  flutter_launcher_icons: ^0.13.1' >> pubspec.yaml
-          echo 'flutter_launcher_icons:' >> pubspec.yaml
-          echo '  android: "launcher_icon"' >> pubspec.yaml
-          echo '  image_path: "assets/app_icon.png"' >> pubspec.yaml
-          echo '  min_sdk_android: 21' >> pubspec.yaml
+          cp "$ICON" assets/app_icon.png || true
+          # Fix duplicate dev_dependencies issue
+          sed -i '/flutter_launcher_icons/d' pubspec.yaml
+          sed -i '/^flutter_launcher_icons:/,/min_sdk_android/d' pubspec.yaml
+          if grep -q "dev_dependencies:" pubspec.yaml; then
+            echo "  flutter_launcher_icons: ^0.13.1" >> pubspec.yaml
+          else
+            echo "dev_dependencies:" >> pubspec.yaml
+            echo "  flutter_launcher_icons: ^0.13.1" >> pubspec.yaml
+          fi
+          echo "" >> pubspec.yaml
+          echo "flutter_launcher_icons:" >> pubspec.yaml
+          echo "  android: \"launcher_icon\"" >> pubspec.yaml
+          echo "  image_path: \"assets/app_icon.png\"" >> pubspec.yaml
+          echo "  min_sdk_android: 21" >> pubspec.yaml
       - name: Build with Icon
         run: |
           flutter pub get
-          dart run flutter_launcher_icons || true
+          dart run flutter_launcher_icons
           flutter build apk --release --no-tree-shake-icons
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dainik-Kharch-APK-Warli-Icon
+          name: Dainik-Kharch-APK-Warli-Icon-FIXED
           path: build/app/outputs/flutter-apk/app-release.apk
