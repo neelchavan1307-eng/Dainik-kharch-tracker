@@ -4,8 +4,136 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter/services.dart';
 
-void main() => runApp(MaterialApp(debugShowCheckedModeBanner: false, home: DainikKharchApp()));
+void main() => runApp(MaterialApp(debugShowCheckedModeBanner: false, home: LoginGate()));
+
+class LoginGate extends StatefulWidget { @override State<LoginGate> createState()=> _LoginGateState(); }
+class _LoginGateState extends State<LoginGate> {
+  bool isLogged = false;
+  @override void initState(){ super.initState(); checkLogin(); }
+  void checkLogin() async {
+    final p = await SharedPreferences.getInstance();
+    bool logged = p.getBool('isLogged')?? false;
+    if(logged) setState(()=> isLogged=true);
+  }
+  @override Widget build(BuildContext context){
+    return isLogged? DainikKharchApp() : LoginPage(onSuccess: ()=> setState(()=> isLogged=true));
+  }
+}
+
+// ========== LOGIN PAGE - FINGERPRINT + PATTERN ==========
+class LoginPage extends StatefulWidget {
+  final VoidCallback onSuccess;
+  LoginPage({required this.onSuccess});
+  @override State<LoginPage> createState()=> _LoginPageState();
+}
+class _LoginPageState extends State<LoginPage> {
+  final LocalAuthentication auth = LocalAuthentication();
+  List<int> enteredPattern = [];
+  List<int> savedPattern = [0,1,2,4]; // Default pattern L shape, user badalel
+  bool isSettingPattern = false;
+
+  @override void initState(){ super.initState(); loadPattern(); Future.delayed(Duration(milliseconds: 500), ()=> tryFingerprint()); }
+  void loadPattern() async {
+    final p = await SharedPreferences.getInstance();
+    String? pat = p.getString('userPattern');
+    if(pat!=null) savedPattern = pat.split(',').map((e)=> int.parse(e)).toList();
+    else setState(()=> isSettingPattern = true); // Pahilyanda pattern set kara
+  }
+  void savePattern(List<int> pat) async {
+    final p = await SharedPreferences.getInstance();
+    p.setString('userPattern', pat.join(','));
+    setState(()=> savedPattern=pat);
+  }
+
+  Future<void> tryFingerprint() async {
+    try{
+      bool canCheck = await auth.canCheckBiometrics;
+      if(!canCheck) return;
+      bool didAuth = await auth.authenticate(localizedReason: 'खर्च वही उघडण्यासाठी फिंगरप्रिंट लावा');
+      if(didAuth) loginSuccess();
+    } catch(e){ print(e); }
+  }
+  void loginSuccess() async {
+    final p = await SharedPreferences.getInstance();
+    p.setBool('isLogged', true);
+    widget.onSuccess();
+  }
+
+  @override Widget build(BuildContext context){
+    return Scaffold(
+      backgroundColor: Color(0xFF0B0E14),
+      body: Stack(children: [
+        Positioned.fill(child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF1A1F2B), Color(0xFF0B0E14)])))),
+        Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD4FF5A), Color(0xFF8BC34A)]), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(0xFFD4FF5A).withOpacity(0.4), blurRadius: 30)]), child: Text("₹", style: TextStyle(fontSize: 40, fontWeight: FontWeight.w900))),
+          SizedBox(height: 16),
+          Text("खर्चाची नोंद वही", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+          Text(isSettingPattern? "नवीन पॅटर्न सेट करा (किमान 4 ठिपके जोडा)" : "पॅटर्न काढा किंवा फिंगरप्रिंट लावा", style: TextStyle(color: Colors.white54, fontSize: 11)),
+          SizedBox(height: 30),
+          // PATTERN LOCK GRID
+          Container(
+            width: 240, height: 240,
+            child: GridView.builder(
+              physics: NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 20, mainAxisSpacing: 20),
+              itemCount: 9,
+              itemBuilder: (c,i){
+                bool selected = enteredPattern.contains(i);
+                return GestureDetector(
+                  onPanDown: (_)=> setState(()=> enteredPattern=[i]),
+                  onPanUpdate: (d){
+                    RenderBox box = context.findRenderObject() as RenderBox;
+                    // simple logic: find nearest dot
+                  },
+                  onTap: (){
+                    setState((){
+                      if(enteredPattern.contains(i)) enteredPattern.remove(i);
+                      else enteredPattern.add(i);
+                      if(enteredPattern.length>=4 &&!isSettingPattern){
+                        if(enteredPattern.join(',') == savedPattern.join(',')) loginSuccess();
+                        else if(enteredPattern.length==savedPattern.length){
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("चुकीचा पॅटर्न!"), backgroundColor: Colors.red));
+                          enteredPattern=[];
+                        }
+                      }
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      color: selected? Color(0xFF00E676) : Color(0xFF1A1F2B),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: selected? Color(0xFF00E676) : Colors.white24, width: 2),
+                      boxShadow: selected? [BoxShadow(color: Color(0xFF00E676).withOpacity(0.5), blurRadius: 15)] : [],
+                    ),
+                    child: Center(child: selected? Icon(Icons.circle, size: 12, color: Colors.black) : Icon(Icons.circle_outlined, size: 10, color: Colors.white24)),
+                  ),
+                );
+              },
+            ),
+          ),
+          SizedBox(height: 10),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            TextButton(onPressed: ()=> setState(()=> enteredPattern=[]), child: Text("Clear करा", style: TextStyle(color: Colors.white54))),
+            if(isSettingPattern && enteredPattern.length>=4) ElevatedButton(onPressed: (){ savePattern(enteredPattern); setState(()=> isSettingPattern=false); enteredPattern=[]; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("पॅटर्न सेव झाला!")) ); }, child: Text("पॅटर्न Save करा"), style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676), foregroundColor: Colors.black)),
+          ]),
+          SizedBox(height: 20),
+          Divider(color: Colors.white10, indent: 60, endIndent: 60),
+          SizedBox(height: 10),
+          GestureDetector(
+            onTap: tryFingerprint,
+            child: Container(padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14), decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(30), border: Border.all(color: Color(0xFF00E676).withOpacity(0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.fingerprint, color: Color(0xFF00E676), size: 28), SizedBox(width: 10), Text("फिंगरप्रिंटने उघडा", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))])),
+          ),
+          SizedBox(height: 20),
+          TextButton(onPressed: loginSuccess, child: Text("Skip करून थेट उघडा (Testing)", style: TextStyle(color: Colors.white24, fontSize: 10))),
+        ])),
+      ]),
+    );
+  }
+}
 
 class Expense {
   String title, amount, cat; DateTime date;
@@ -25,17 +153,17 @@ class DainikKharchApp extends StatefulWidget { @override State<DainikKharchApp> 
 class _DState extends State<DainikKharchApp> with SingleTickerProviderStateMixin {
   List<Expense> exps = []; List<Udhaari> udhars = [];
   DateTime selDate = DateTime.now(); int tab = 0;
-  double monthlyBudget = 4000; // Default 4000 tuzya sathi
+  double monthlyBudget = 4000;
   late AnimationController pulseCtrl;
 
-    List<Map<String, dynamic>> catBlocks = [
+  List<Map<String, dynamic>> catBlocks = [
     {"title":"भाजीपाला","icon":"🥬","cat":"भाजीपाला","c1":0xFF00C853,"c2":0xFF69F0AE,"shadow":0xFF00C853},
     {"title":"किराणा","icon":"🛒","cat":"किराणा","c1":0xFFD500F9,"c2":0xFFEA80FC,"shadow":0xFFAA00FF},
     {"title":"पेट्रोल","icon":"⛽","cat":"प्रवास","c1":0xFF2962FF,"c2":0xFF82B1FF,"shadow":0xFF2962FF},
     {"title":"लाईट बिल","icon":"💡","cat":"बिल","c1":0xFFFF6D00,"c2":0xFFFFAB40,"shadow":0xFFFF6D00},
     {"title":"रिचार्ज","icon":"📱","cat":"रिचार्ज","c1":0xFF00B8D4,"c2":0xFF84FFFF,"shadow":0xFF00B8D4},
     {"title":"चहा नाश्ता","icon":"☕","cat":"खाद्य","c1":0xFFFF1744,"c2":0xFFFF8A80,"shadow":0xFFFF1744},
-    {"title":"इतर","icon":"➕","cat":"इतर","c1":0xFF6C757D,"c2":0xFFADB5BD,"shadow":0xFF495057}, // <-- HA NAVIN BLOCK
+    {"title":"इतर","icon":"➕","cat":"इतर","c1":0xFF6C757D,"c2":0xFFADB5BD,"shadow":0xFF495057},
   ];
 
   @override void initState(){ super.initState(); load(); pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 800))..repeat(reverse: true); }
@@ -44,68 +172,26 @@ class _DState extends State<DainikKharchApp> with SingleTickerProviderStateMixin
   bool sameDay(DateTime a,b) => a.year==b.year && a.month==b.month && a.day==b.day;
   void addExp(String t,String a,String c){ setState(()=> exps.insert(0, Expense(title:t, amount:a, cat:c, date:selDate))); save(); }
 
-  // BUDGET EDIT DIALOG
   void editBudgetDialog(){
     TextEditingController bCtrl = TextEditingController(text: monthlyBudget.toInt().toString());
-    showDialog(context: context, builder: (ctx)=> AlertDialog(
-      backgroundColor: Color(0xFF1E2635),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text("या महिन्याचे बजेट टाका", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text("उदा: तुझ्याकडे 4000 आहेत तर 4000 टाक", style: TextStyle(color: Colors.white54, fontSize: 11)),
-        SizedBox(height: 12),
-        TextField(controller: bCtrl, keyboardType: TextInputType.number, autofocus: true, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold), decoration: InputDecoration(prefixText: "₹ ", hintText: "4000", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-      ]),
-      actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: Text("रद्द")), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676)), onPressed: (){ if(bCtrl.text.isNotEmpty){ setState(()=> monthlyBudget = double.tryParse(bCtrl.text)??4000); save(); Navigator.pop(ctx); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("बजेट ₹${monthlyBudget.toInt()} सेट झाले!"))); } }, child: Text("Save करा", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))],
-    ));
+    showDialog(context: context, builder: (ctx)=> AlertDialog(backgroundColor: Color(0xFF1E2635), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: Text("या महिन्याचे बजेट टाका", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)), content: Column(mainAxisSize: MainAxisSize.min, children: [Text("उदा: तुझ्याकडे 4000 आहेत तर 4000 टाक", style: TextStyle(color: Colors.white54, fontSize: 11)), SizedBox(height: 12), TextField(controller: bCtrl, keyboardType: TextInputType.number, autofocus: true, style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold), decoration: InputDecoration(prefixText: "₹ ", hintText: "4000", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),]), actions: [TextButton(onPressed: ()=>Navigator.pop(ctx), child: Text("रद्द")), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676)), onPressed: (){ if(bCtrl.text.isNotEmpty){ setState(()=> monthlyBudget = double.tryParse(bCtrl.text)??4000); save(); Navigator.pop(ctx); } }, child: Text("Save करा", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))],));
   }
 
-  // LIST EDIT / DELETE
   void showListOptions(int index, Expense e){
     TextEditingController tCtrl = TextEditingController(text: e.title);
     TextEditingController aCtrl = TextEditingController(text: e.amount);
-    showModalBottomSheet(context: context, backgroundColor: Color(0xFF1A1F2B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (ctx)=> Padding(padding: EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))),
-      SizedBox(height: 14),
-      Text("नोंद एडिट करा / डिलीट करा", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
-      SizedBox(height: 14),
-      TextField(controller: tCtrl, style: TextStyle(color: Colors.white), decoration: InputDecoration(labelText: "नाव", labelStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-      SizedBox(height: 10),
-      TextField(controller: aCtrl, keyboardType: TextInputType.number, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), decoration: InputDecoration(labelText: "रक्कम ₹", labelStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-      SizedBox(height: 16),
-      Row(children: [
-        Expanded(child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), icon: Icon(Icons.delete, size: 18), label: Text("डिलीट करा"), onPressed: (){ setState(()=> exps.removeAt(index)); save(); Navigator.pop(ctx); })),
-        SizedBox(width: 10),
-        Expanded(child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676), foregroundColor: Colors.black, padding: EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), icon: Icon(Icons.save, size: 18), label: Text("अपडेट करा"), onPressed: (){ setState(()=> exps[index] = Expense(title: tCtrl.text, amount: aCtrl.text, cat: e.cat, date: e.date)); save(); Navigator.pop(ctx); })),
-      ]),
-      SizedBox(height: 10),
-    ])));
+    showModalBottomSheet(context: context, backgroundColor: Color(0xFF1A1F2B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))), builder: (ctx)=> Padding(padding: EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(10))), SizedBox(height: 14), Text("नोंद एडिट करा / डिलीट करा", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), SizedBox(height: 14), TextField(controller: tCtrl, style: TextStyle(color: Colors.white), decoration: InputDecoration(labelText: "नाव", labelStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))), SizedBox(height: 10), TextField(controller: aCtrl, keyboardType: TextInputType.number, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold), decoration: InputDecoration(labelText: "रक्कम ₹", labelStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))), SizedBox(height: 16), Row(children: [Expanded(child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), icon: Icon(Icons.delete, size: 18), label: Text("डिलीट करा"), onPressed: (){ setState(()=> exps.removeAt(index)); save(); Navigator.pop(ctx); })), SizedBox(width: 10), Expanded(child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF00E676), foregroundColor: Colors.black, padding: EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), icon: Icon(Icons.save, size: 18), label: Text("अपडेट करा"), onPressed: (){ setState(()=> exps[index] = Expense(title: tCtrl.text, amount: aCtrl.text, cat: e.cat, date: e.date)); save(); Navigator.pop(ctx); })),]), SizedBox(height: 10),])));
   }
 
   void openManualEntry(Map<String, dynamic> block){
     TextEditingController amtCtrl = TextEditingController();
     TextEditingController noteCtrl = TextEditingController(text: block['title']);
-    showDialog(context: context, builder: (ctx)=> Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        padding: EdgeInsets.all(20),
-        decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1E2635), Color(0xFF0B0E14)]), borderRadius: BorderRadius.circular(24), border: Border.all(color: Color(block['c1']).withOpacity(0.5), width: 1.5)),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [Container(padding: EdgeInsets.all(10), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(block['c1']), Color(block['c2'])]), borderRadius: BorderRadius.circular(12)), child: Text(block['icon'], style: TextStyle(fontSize: 24))), SizedBox(width: 12), Expanded(child: Text("${block['title']}\nखर्च टाका", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)))]),
-          SizedBox(height: 18),
-          TextField(controller: amtCtrl, keyboardType: TextInputType.number, autofocus: true, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900), decoration: InputDecoration(prefixText: "₹ ", hintText: "120", filled: true, fillColor: Colors.white.withOpacity(0.07), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
-          SizedBox(height: 12),
-          TextField(controller: noteCtrl, style: TextStyle(color: Colors.white), decoration: InputDecoration(labelText: "तपशील", labelStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white.withOpacity(0.07), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-          SizedBox(height: 18),
-          Row(children: [Expanded(child: TextButton(onPressed: ()=> Navigator.pop(ctx), child: Text("रद्द", style: TextStyle(color: Colors.white54)))), SizedBox(width: 10), Expanded(flex: 2, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Color(block['c1']), foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: (){ if(amtCtrl.text.isNotEmpty){ addExp(noteCtrl.text.isEmpty? block['title'] : noteCtrl.text, amtCtrl.text, block['cat']); Navigator.pop(ctx); } }, child: Text("OK - Add करा", style: TextStyle(fontWeight: FontWeight.bold)) ))])
-        ]),
-      ),
-    ));
+    showDialog(context: context, builder: (ctx)=> Dialog(backgroundColor: Colors.transparent, child: Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1E2635), Color(0xFF0B0E14)]), borderRadius: BorderRadius.circular(24), border: Border.all(color: Color(block['c1']).withOpacity(0.5), width: 1.5)), child: Column(mainAxisSize: MainAxisSize.min, children: [Row(children: [Container(padding: EdgeInsets.all(10), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(block['c1']), Color(block['c2'])]), borderRadius: BorderRadius.circular(12)), child: Text(block['icon'], style: TextStyle(fontSize: 24))), SizedBox(width: 12), Expanded(child: Text("${block['title']}\nखर्च टाका", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)))]), SizedBox(height: 18), TextField(controller: amtCtrl, keyboardType: TextInputType.number, autofocus: true, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900), decoration: InputDecoration(prefixText: "₹ ", hintText: "120", filled: true, fillColor: Colors.white.withOpacity(0.07), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))), SizedBox(height: 12), TextField(controller: noteCtrl, style: TextStyle(color: Colors.white), decoration: InputDecoration(labelText: "तपशील", labelStyle: TextStyle(color: Colors.white54), filled: true, fillColor: Colors.white.withOpacity(0.07), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))), SizedBox(height: 18), Row(children: [Expanded(child: TextButton(onPressed: ()=> Navigator.pop(ctx), child: Text("रद्द", style: TextStyle(color: Colors.white54)))), SizedBox(width: 10), Expanded(flex: 2, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Color(block['c1']), foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: (){ if(amtCtrl.text.isNotEmpty){ addExp(noteCtrl.text.isEmpty? block['title'] : noteCtrl.text, amtCtrl.text, block['cat']); Navigator.pop(ctx); } }, child: Text("OK - Add करा", style: TextStyle(fontWeight: FontWeight.bold)) ))])]),),));
   }  @override Widget build(BuildContext context){
     return Scaffold(
       backgroundColor: Color(0xFF0B0E14),
       floatingActionButton: tab==0? FloatingActionButton(onPressed: showVoiceDialog, backgroundColor: Color(0xFF00E676), child: Icon(Icons.mic, color: Colors.black)):null,
-      body: tab==0? buildDash() : tab==1? buildLedger() : tab==2? buildUdhaari() : buildChart(),
+      body: tab==0? buildDash() : tab==1? buildLedger() : tab==2? buildUdhaari() : buildGraphPage(),
       bottomNavigationBar: Container(margin: EdgeInsets.all(14), padding: EdgeInsets.all(6), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(28)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [nav(Icons.dashboard,0), nav(Icons.receipt_long,1), nav(Icons.handshake,2), nav(Icons.bar_chart,3)])),
     );
   }
@@ -119,8 +205,8 @@ class _DState extends State<DainikKharchApp> with SingleTickerProviderStateMixin
     return CustomScrollView(slivers: [
       SliverAppBar(expandedHeight: 400, pinned: true, backgroundColor: Color(0xFF0B0E14), flexibleSpace: FlexibleSpaceBar(background: Stack(children: [
         Positioned(left: 16,right: 16,top: 55, child: Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD4FF5A), Color(0xFF8BC34A)]), borderRadius: BorderRadius.circular(24)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("दैनिक खर्च - PREMIUM 3D", style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black)),
-          Text("Budget Tap = Edit • Wheel Scroll = 3D", style: TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.bold)),
+          Row(children: [Text("दैनिक खर्च - PREMIUM 3D", style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.black)), Spacer(), GestureDetector(onTap: () async { final p=await SharedPreferences.getInstance(); p.setBool('isLogged', false); Navigator.pushReplacement(context, MaterialPageRoute(builder: (_)=> LoginGate())); }, child: Icon(Icons.logout, color: Colors.black, size: 20))]),
+          Text("Graph + Fingerprint Login Active", style: TextStyle(fontSize: 10, color: Colors.black87, fontWeight: FontWeight.bold)),
           SizedBox(height: 8),
           Row(children: [Expanded(child: ElevatedButton.icon(onPressed: showVoiceDialog, icon: Icon(Icons.mic, size: 14), label: Text("बोला", style: TextStyle(fontSize: 10)), style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Color(0xFFD4FF5A)))), SizedBox(width: 6), Expanded(child: ElevatedButton.icon(onPressed: showSMSDialog, icon: Icon(Icons.sms, size: 14), label: Text("SMS", style: TextStyle(fontSize: 10)), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black)))])
         ]))),
@@ -142,87 +228,57 @@ class _DState extends State<DainikKharchApp> with SingleTickerProviderStateMixin
             var q = catBlocks[i];
             return GestureDetector(
               onTap: ()=> openManualEntry(q),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(q['c1']), Color(q['c2'])]),
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [BoxShadow(color: Color(q['shadow']).withOpacity(0.45), blurRadius: 18, offset: Offset(0,10))],
-                  border: Border.all(color: Colors.white.withOpacity(0.25), width: 1),
-                ),
-                child: Stack(children: [
-                  Positioned(top: 0, left: 0, right: 0, child: Container(height: 40, decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.white.withOpacity(0.35), Colors.transparent]), borderRadius: BorderRadius.vertical(top: Radius.circular(22))))),
-                  Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Container(padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.15), shape: BoxShape.circle), child: Text(q['icon'].toString(), style: TextStyle(fontSize: 26))),
-                    SizedBox(height: 10),
-                    Text(q['title'].toString(), style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white), textAlign: TextAlign.center),
-                    SizedBox(height: 6),
-                    Container(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.black.withOpacity(0.85), borderRadius: BorderRadius.circular(20)), child: Text("ADD", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))),
-                  ])),
-                ]),
-              ),
+              child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(q['c1']), Color(q['c2'])]), borderRadius: BorderRadius.circular(22), boxShadow: [BoxShadow(color: Color(q['shadow']).withOpacity(0.45), blurRadius: 18, offset: Offset(0,10))], border: Border.all(color: Colors.white.withOpacity(0.25), width: 1)), child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Container(padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.black.withOpacity(0.15), shape: BoxShape.circle), child: Text(q['icon'].toString(), style: TextStyle(fontSize: 26))), SizedBox(height: 10), Text(q['title'].toString(), style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.white), textAlign: TextAlign.center), SizedBox(height: 6), Container(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.black.withOpacity(0.85), borderRadius: BorderRadius.circular(20)), child: Text("ADD", style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))),]))),
             );
           },
         ),
         SizedBox(height: 22),
-        Row(children: [Text("आजच्या नोंदी - 3D Wheel", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), Spacer(), Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Color(0xFF00E676).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text("Firun Bagha", style: TextStyle(color: Color(0xFF00E676), fontSize: 9)))]),
-        SizedBox(height: 4),
-        Text("मधली entry मोठी दिसेल, वर-खाली scroll करताना round फिरेल", style: TextStyle(color: Colors.white38, fontSize: 10)),
+        Row(children: [Text("आजच्या नोंदी - 3D Wheel", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)), Spacer(), GestureDetector(onTap: ()=> setState(()=> tab=3), child: Container(padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Color(0xFF00E676).withOpacity(0.15), borderRadius: BorderRadius.circular(20)), child: Text("Graph बघा →", style: TextStyle(color: Color(0xFF00E676), fontSize: 9))))]),
         SizedBox(height: 12),
-
-        // ======== 3D ROUND WHEEL LIST ========
         todaysList.isEmpty? Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(16)), child: Center(child: Text("वरच्या 3D Block वर टच करून खर्च टाका!", style: TextStyle(color: Colors.white38, fontSize: 12)))) :
-        Container(
-          height: 320,
-          decoration: BoxDecoration(color: Color(0xFF0E121B), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.05))),
-          child: ListWheelScrollView.useDelegate(
-            itemExtent: 90,
-            diameterRatio: 1.2,
-            perspective: 0.003,
-            offAxisFraction: -0.2,
-            useMagnifier: true,
-            magnification: 1.25,
-            overAndUnderCenterOpacity: 0.4,
-            physics: FixedExtentScrollPhysics(),
-            childDelegate: ListWheelChildBuilderDelegate(
-              childCount: todaysList.length,
-              builder: (ctx, idx){
-                var e = todaysList[idx];
-                int realIdx = exps.indexOf(e);
-                return GestureDetector(
-                  onLongPress: ()=> showListOptions(realIdx, e),
-                  onTap: ()=> showListOptions(realIdx, e),
-                  child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    padding: EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [Color(0xFF1A1F2B), Color(0xFF242F45)]),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Color(0xFF00E676).withOpacity(0.2), width: 1),
-                      boxShadow: [BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0,6)), BoxShadow(color: Color(0xFF00E676).withOpacity(0.08), blurRadius: 20)],
-                    ),
-                    child: Row(children: [
-                      Container(width: 48, height: 48, decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF00E676), Color(0xFF69F0AE)]), shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.4), blurRadius: 10)]), child: Center(child: Text(e.cat.isNotEmpty? e.cat[0].toUpperCase() : "₹", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)))),
-                      SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Text(e.title, style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        SizedBox(height: 2),
-                        Text("${e.cat} • ${DateFormat('hh:mm a').format(e.date)} • Long Press = Edit", style: TextStyle(color: Colors.white38, fontSize: 9)),
-                      ])),
-                      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Container(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)), child: Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.w900, fontSize: 14))),
-                        SizedBox(height: 4),
-                        Icon(Icons.sync, size: 12, color: Colors.white24),
-                      ])
-                    ]),
-                  ),
-                );
-              }
-            ),
-          ),
-        ),
+        Container(height: 320, decoration: BoxDecoration(color: Color(0xFF0E121B), borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.white.withOpacity(0.05))), child: ListWheelScrollView.useDelegate(itemExtent: 90, diameterRatio: 1.2, perspective: 0.003, offAxisFraction: -0.2, useMagnifier: true, magnification: 1.25, overAndUnderCenterOpacity: 0.4, physics: FixedExtentScrollPhysics(), childDelegate: ListWheelChildBuilderDelegate(childCount: todaysList.length, builder: (ctx, idx){ var e = todaysList[idx]; int realIdx = exps.indexOf(e); return GestureDetector(onLongPress: ()=> showListOptions(realIdx, e), onTap: ()=> showListOptions(realIdx, e), child: Container(margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6), padding: EdgeInsets.all(14), decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF1A1F2B), Color(0xFF242F45)]), borderRadius: BorderRadius.circular(18), border: Border.all(color: Color(0xFF00E676).withOpacity(0.2), width: 1)), child: Row(children: [Container(width: 48, height: 48, decoration: BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF00E676), Color(0xFF69F0AE)]), shape: BoxShape.circle), boxShadow: [BoxShadow(color: Color(0xFF00E676).withOpacity(0.4), blurRadius: 10)]), child: Center(child: Text(e.cat.isNotEmpty? e.cat[0].toUpperCase() : "₹", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)))), SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(e.title, style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis), SizedBox(height: 2), Text("${e.cat} • ${DateFormat('hh:mm a').format(e.date)}", style: TextStyle(color: Colors.white38, fontSize: 9)),])), Column(crossAxisAlignment: CrossAxisAlignment.end, children: [Container(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)), child: Text("₹${e.amount}", style: TextStyle(color: Color(0xFF00E676), fontWeight: FontWeight.w900, fontSize: 14))), SizedBox(height: 4), Icon(Icons.sync, size: 12, color: Colors.white24)])]))); }))),
         SizedBox(height: 90),
       ])))
     ]);
+  }
+
+  // ========= GRAPH PAGE - NEW =========
+  Widget buildGraphPage(){
+    Map<String, double> catTotals = {};
+    for(var e in exps){ catTotals[e.cat] = (catTotals[e.cat]??0) + (double.tryParse(e.amount)??0); }
+    double total = catTotals.values.fold(0, (a,b)=>a+b);
+    List<Color> colors = [Color(0xFF00C853), Color(0xFFD500F9), Color(0xFF2962FF), Color(0xFFFF6D00), Color(0xFF00B8D4), Color(0xFFFF1744), Color(0xFF6C757D)];
+    int ci=0;
+    return Scaffold(
+      backgroundColor: Color(0xFF0B0E14),
+      appBar: AppBar(backgroundColor: Color(0xFF0B0E14), title: Text("महिन्याचा रिपोर्ट - ग्राफ", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), iconTheme: IconThemeData(color: Colors.white)),
+      body: SingleChildScrollView(padding: EdgeInsets.all(16), child: Column(children: [
+        Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(20)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("एकूण खर्च: ₹${total.toInt()}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+          SizedBox(height: 4),
+          Text("बजेट: ₹${monthlyBudget.toInt()} | शिल्लक: ₹${(monthlyBudget-total).toInt()}", style: TextStyle(color: Colors.white54, fontSize: 11)),
+          SizedBox(height: 20),
+          SizedBox(height: 200, child: catTotals.isEmpty? Center(child: Text("अजून खर्च नाही", style: TextStyle(color: Colors.white38))) : PieChart(PieChartData(sectionsSpace: 2, centerSpaceRadius: 50, sections: catTotals.entries.map((en){ Color col = colors[ci % colors.length]; ci++; double perc = total==0?0: (en.value/total*100); return PieChartSectionData(color: col, value: en.value, title: "${perc.toStringAsFixed(0)}%\n${en.key}", radius: 60, titleStyle: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)); }).toList()))),
+          SizedBox(height: 20),
+         ...catTotals.entries.map((en){ Color col = colors[catTotals.keys.toList().indexOf(en.key) % colors.length]; return Container(margin: EdgeInsets.symmetric(vertical: 4), padding: EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white5, borderRadius: BorderRadius.circular(10)), child: Row(children: [Container(width: 12, height: 12, decoration: BoxDecoration(color: col, shape: BoxShape.circle)), SizedBox(width: 8), Expanded(child: Text(en.key, style: TextStyle(color: Colors.white, fontSize: 12))), Text("₹${en.value.toInt()}", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))])); }).toList(),
+        ])),
+        SizedBox(height: 16),
+        Container(padding: EdgeInsets.all(16), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(20)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("7 दिवसांचा Bar Graph", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          SizedBox(height: 16),
+          SizedBox(height: 200, child: BarChart(BarChartData(
+            barGroups: List.generate(7, (i){
+              DateTime d = DateTime.now().subtract(Duration(days: 6-i));
+              double sum=0; for(var e in exps){ if(sameDay(e.date, d)) sum+= double.tryParse(e.amount)??0; }
+              return BarChartGroupData(x:i, barRods: [BarChartRodData(toY: sum, color: Color(0xFF00E676), width: 14, borderRadius: BorderRadius.circular(6))]);
+            }),
+            titlesData: FlTitlesData(bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v,_){ return Text(DateFormat('dd').format(DateTime.now().subtract(Duration(days: 6-v.toInt()))), style: TextStyle(color: Colors.white54, fontSize: 10)); }))),
+            gridData: FlGridData(show: false), borderData: FlBorderData(show: false),
+          ))),
+        ])),
+        SizedBox(height: 80),
+      ])),
+    );
   }
 
   Widget tile(String t,String a,String c, DateTime d){ return Container(margin: EdgeInsets.symmetric(vertical: 4), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(12)), child: Row(children: [Text(t, style: TextStyle(color: Colors.white)), Spacer(), Text(a, style: TextStyle(color: Color(0xFF00E676)))])); }
@@ -232,5 +288,4 @@ class _DState extends State<DainikKharchApp> with SingleTickerProviderStateMixin
   void showUdhaariAdd(){ String name="", amt=""; String type="देणे"; showDialog(context: context, builder: (c)=> StatefulBuilder(builder: (c,setS)=> AlertDialog(backgroundColor: Color(0xFF1A1F2B), title: Text("उधारी नोंद", style: TextStyle(color: Colors.white)), content: Column(mainAxisSize: MainAxisSize.min, children: [TextField(decoration: InputDecoration(labelText: "नाव", labelStyle: TextStyle(color: Colors.white54)), style: TextStyle(color: Colors.white), onChanged: (v)=>name=v), TextField(decoration: InputDecoration(labelText: "रक्कम", labelStyle: TextStyle(color: Colors.white54)), style: TextStyle(color: Colors.white), keyboardType: TextInputType.number, onChanged: (v)=>amt=v), DropdownButton<String>(value: type, dropdownColor: Color(0xFF1A1F2B), style: TextStyle(color: Colors.white), items: ["देणे","घेणे"].map((e)=>DropdownMenuItem(value:e, child: Text(e))).toList(), onChanged: (v)=>setS(()=>type=v!)),]), actions: [ElevatedButton(onPressed: (){ if(name.isNotEmpty && amt.isNotEmpty){ setState(()=> udhars.insert(0, Udhaari(name:name, amount:amt, type:type, date:DateTime.now()))); save(); Navigator.pop(c);} }, child: Text("जतन करा"))]))) ;}
   Widget stat(String t,String a,Color col){ return Expanded(child: Container(padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(t, style: TextStyle(color: Colors.white54, fontSize: 10)), Text(a, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))]))) ;}
   Widget buildLedger(){ return Scaffold(backgroundColor: Color(0xFF0B0E14), appBar: AppBar(backgroundColor: Color(0xFF0B0E14), title: Text("सर्व नोंदी", style: TextStyle(color: Colors.white))), body: ListView(children: exps.map((e)=> tile(e.title, "₹${e.amount}", e.cat, e.date)).toList())); }
-  Widget buildChart(){ return Scaffold(backgroundColor: Color(0xFF0B0E14), appBar: AppBar(backgroundColor: Color(0xFF0B0E14), title: Text("चार्ट", style: TextStyle(color: Colors.white))), body: Padding(padding: EdgeInsets.all(16), child: Container(height: 240, padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF1A1F2B), borderRadius: BorderRadius.circular(20)), child: BarChart(BarChartData(barGroups: List.generate(7, (i){ return BarChartGroupData(x:i, barRods: [BarChartRodData(toY: (i+3)*50.0, color: Color(0xFF00E676), width: 16, borderRadius: BorderRadius.circular(6))]); })))))); }
 }
