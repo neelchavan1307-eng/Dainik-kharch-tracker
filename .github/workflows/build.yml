@@ -22,9 +22,7 @@ jobs:
           cp /tmp/my_pubspec.yaml pubspec.yaml
           cp /tmp/my_main.dart lib/main.dart
           mkdir -p android/app/src/main/kotlin/com/example/dainik_kharch_tracker
-          echo 'package com.example.dainik_kharch_tracker
-          import io.flutter.embedding.android.FlutterFragmentActivity
-          class MainActivity: FlutterFragmentActivity()' > android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt
+          printf 'package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n' > android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt
           flutter pub get
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
