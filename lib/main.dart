@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 
 void main() => runApp(MaterialApp(debugShowCheckedModeBanner: false, home: LoginGate()));
 
-// --- FINAL WARLI BG - THODA DARK / FAINT - PNG नको ---
+// --- FINAL DARK & BUSY WARLI BG ---
 Widget warliBackground({required Widget child}) {
   return Stack(
     children: [
@@ -27,11 +27,11 @@ Widget warliBackground({required Widget child}) {
         bottom: 0, left: 0, right: 0,
         child: Container(
           color: Colors.black.withOpacity(0.85),
-          padding: EdgeInsets.symmetric(vertical: 6),
+          padding: EdgeInsets.symmetric(vertical: 7),
           child: Text(
             'Created by Pradip Chavan',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.white, fontSize: 11, letterSpacing: 1.5, fontWeight: FontWeight.bold),
           ),
         ),
       ),
@@ -43,22 +43,27 @@ class WarliPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()
-     ..color = Colors.white.withOpacity(0.09) // THODA DARK - 0.09 केला, जास्त हवा असेल तर 0.14 करा
-     ..strokeWidth = 1.1
-     ..style = PaintingStyle.stroke;
-    for (double y = 50; y < size.height; y += 120) {
-      for (double x = 30; x < size.width; x += 100) {
-        canvas.drawCircle(Offset(x, y), 5, paint);
+    ..color = Colors.white.withOpacity(0.32) // एकदम DARK
+    ..strokeWidth = 1.3
+    ..style = PaintingStyle.stroke;
+
+    for (double y = 20; y < size.height; y += 75) {
+      for (double x = 15; x < size.width; x += 60) {
+        canvas.drawCircle(Offset(x, y), 5.5, paint);
         Path body = Path();
         body.moveTo(x, y+6);
-        body.lineTo(x-7, y+20);
-        body.lineTo(x+7, y+20);
+        body.lineTo(x-8, y+22);
+        body.lineTo(x+8, y+22);
         body.close();
         canvas.drawPath(body, paint);
-        canvas.drawLine(Offset(x-7, y+12), Offset(x-13, y+9), paint);
-        canvas.drawLine(Offset(x+7, y+12), Offset(x+13, y+9), paint);
-        canvas.drawLine(Offset(x-3, y+20), Offset(x-5, y+30), paint);
-        canvas.drawLine(Offset(x+3, y+20), Offset(x+5, y+30), paint);
+        canvas.drawLine(Offset(x-8, y+12), Offset(x-16, y+8), paint);
+        canvas.drawLine(Offset(x+8, y+12), Offset(x+16, y+8), paint);
+        canvas.drawLine(Offset(x-4, y+22), Offset(x-7, y+34), paint);
+        canvas.drawLine(Offset(x+4, y+22), Offset(x+7, y+34), paint);
+        if(x % 120 < 10){
+          canvas.drawCircle(Offset(x+30, y+10), 3, paint);
+          canvas.drawLine(Offset(x+30, y+13), Offset(x+30, y+25), paint);
+        }
       }
     }
   }
@@ -256,7 +261,7 @@ class _DState extends State<DainikKharchApp> {
         SizedBox(height: 16),
         Text("आजची यादी (${todaysList.length})", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
         SizedBox(height: 8),
-   ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
+  ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
         }).toList(),
         SizedBox(height: 30),
       ])),
