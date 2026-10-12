@@ -9,15 +9,19 @@ import 'package:flutter/services.dart';
 
 void main() => runApp(MaterialApp(debugShowCheckedModeBanner: false, home: LoginGate()));
 
-// --- WARLI BG + WATERMARK ---
+// --- WARLI BG + WATERMARK - DARK VISIBLE 0.35 ---
 Widget warliBackground({required Widget child}) {
   return Stack(
     children: [
       Positioned.fill(
-        child: Image.asset(
-          'assets/warli_bg.png',
-          fit: BoxFit.cover,
-          opacity: const AlwaysStoppedAnimation(0.12),
+        child: Opacity(
+          opacity: 0.35, // DARK केला - आधी 0.12 होता
+          child: Image.asset(
+            'assets/warli_bg.png',
+            fit: BoxFit.cover,
+            color: Colors.white.withOpacity(0.9),
+            colorBlendMode: BlendMode.srcIn,
+          ),
         ),
       ),
       child,
@@ -27,7 +31,7 @@ Widget warliBackground({required Widget child}) {
           color: Colors.black.withOpacity(0.7),
           padding: EdgeInsets.symmetric(vertical: 4),
           child: Text(
-            'Created by Pradip • Warli Art Edition',
+            'Created by Pradip Chavan• Warli Art Edition',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.2),
           ),
@@ -236,7 +240,7 @@ class _DState extends State<DainikKharchApp> {
         SizedBox(height: 16),
         Text("आजची यादी (${todaysList.length})", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
         SizedBox(height: 8),
-     ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
+    ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
         }).toList(),
         SizedBox(height: 30),
       ])),
