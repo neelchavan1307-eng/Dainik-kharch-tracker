@@ -9,18 +9,16 @@ import 'package:flutter/services.dart';
 
 void main() => runApp(MaterialApp(debugShowCheckedModeBanner: false, home: LoginGate()));
 
-// --- WARLI BG + WATERMARK - DARK VISIBLE 0.35 ---
+// --- FINAL WARLI BG - THODA DARK / FAINT - PNG नको ---
 Widget warliBackground({required Widget child}) {
   return Stack(
     children: [
       Positioned.fill(
-        child: Opacity(
-          opacity: 0.35, // DARK केला - आधी 0.12 होता
-          child: Image.asset(
-            'assets/warli_bg.png',
-            fit: BoxFit.cover,
-            color: Colors.white.withOpacity(0.9),
-            colorBlendMode: BlendMode.srcIn,
+        child: Container(
+          color: Color(0xFF070A11),
+          child: CustomPaint(
+            painter: WarliPainter(),
+            size: Size.infinite,
           ),
         ),
       ),
@@ -28,17 +26,43 @@ Widget warliBackground({required Widget child}) {
       Positioned(
         bottom: 0, left: 0, right: 0,
         child: Container(
-          color: Colors.black.withOpacity(0.7),
-          padding: EdgeInsets.symmetric(vertical: 4),
+          color: Colors.black.withOpacity(0.85),
+          padding: EdgeInsets.symmetric(vertical: 6),
           child: Text(
-            'Created by Pradip Chavan• Warli Art Edition',
+            'Created by Pradip Chavan',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.2),
+            style: TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold),
           ),
         ),
       ),
     ],
   );
+}
+
+class WarliPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    Paint paint = Paint()
+     ..color = Colors.white.withOpacity(0.09) // THODA DARK - 0.09 केला, जास्त हवा असेल तर 0.14 करा
+     ..strokeWidth = 1.1
+     ..style = PaintingStyle.stroke;
+    for (double y = 50; y < size.height; y += 120) {
+      for (double x = 30; x < size.width; x += 100) {
+        canvas.drawCircle(Offset(x, y), 5, paint);
+        Path body = Path();
+        body.moveTo(x, y+6);
+        body.lineTo(x-7, y+20);
+        body.lineTo(x+7, y+20);
+        body.close();
+        canvas.drawPath(body, paint);
+        canvas.drawLine(Offset(x-7, y+12), Offset(x-13, y+9), paint);
+        canvas.drawLine(Offset(x+7, y+12), Offset(x+13, y+9), paint);
+        canvas.drawLine(Offset(x-3, y+20), Offset(x-5, y+30), paint);
+        canvas.drawLine(Offset(x+3, y+20), Offset(x+5, y+30), paint);
+      }
+    }
+  }
+  @override bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class LoginGate extends StatefulWidget { @override State<LoginGate> createState()=> _LoginGateState(); }
@@ -61,7 +85,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   String statusText = "Original sensor la touch kara 👇";
   Offset? fingerPos;
   late AnimationController pulseCtrl;
-
   @override void initState(){
     super.initState();
     pulseCtrl = AnimationController(vsync: this, duration: Duration(milliseconds: 1200))..repeat(reverse: true);
@@ -69,7 +92,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     WidgetsBinding.instance.addPostFrameCallback((_) => tryFingerprint());
   }
   @override void dispose(){ pulseCtrl.dispose(); super.dispose(); }
-
   void loadPattern() async {
     final p = await SharedPreferences.getInstance();
     String? pat = p.getString('userPattern_v2');
@@ -87,7 +109,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     HapticFeedback.heavyImpact();
     setState(()=> savedPattern=pat); isSettingPattern=false; statusText="Pattern saved!"; enteredPattern=[];
   }
-
   Future<void> tryFingerprint() async {
     try{
       bool canCheck = await auth.canCheckBiometrics;
@@ -96,19 +117,17 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       if(!isSupported ||!canCheck){ setState(()=> statusText="Device doesn't support"); return; }
       if(available.isEmpty){ setState(()=> statusText="Fingerprint not enrolled"); return; }
       bool didAuth = await auth.authenticate(
-        localizedReason: 'खर्च वही अनलॉक - Original sensor la bot theva',
+        localizedReason: 'खर्च वही अनलॉक',
         options: AuthenticationOptions(biometricOnly: true, stickyAuth: true, useErrorDialogs: true)
       );
       if(didAuth){ HapticFeedback.heavyImpact(); widget.onSuccess(); }
     } catch(e){ setState(()=> statusText="Error: $e"); }
   }
-
   int? getDotIndex(Offset pos, Size size){
     double cellW = size.width/3; double cellH = size.height/3;
     for(int i=0;i<9;i++){ int r=i~/3; int c=i%3; Offset cen=Offset(c*cellW+cellW/2, r*cellH+cellH/2); if((pos-cen).distance<45) return i; }
     return null;
   }
-
   @override Widget build(BuildContext context){
     return Scaffold(
       backgroundColor: Color(0xFF070A11),
@@ -153,7 +172,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     );
   }
 }
-
 class ModernPatternPainter extends CustomPainter {
   final List<int> enteredPattern; final Offset? fingerPos;
   ModernPatternPainter({required this.enteredPattern, this.fingerPos});
@@ -212,7 +230,6 @@ class _DState extends State<DainikKharchApp> {
     TextEditingController noteCtrl = TextEditingController(text: block['title']);
     showDialog(context: context, builder: (ctx)=> Dialog(backgroundColor: Colors.transparent, child: Container(padding: EdgeInsets.all(20), decoration: BoxDecoration(color: Color(0xFF1E2635), borderRadius: BorderRadius.circular(24)), child: Column(mainAxisSize: MainAxisSize.min, children: [Text("${block['title']} खर्च", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)), SizedBox(height: 14), TextField(controller: amtCtrl, keyboardType: TextInputType.number, autofocus: true, style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900), decoration: InputDecoration(prefixText: "₹ ", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))), SizedBox(height: 10), TextField(controller: noteCtrl, style: TextStyle(color: Colors.white), decoration: InputDecoration(labelText: "तपशील", filled: true, fillColor: Colors.white10, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))), SizedBox(height: 14), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Color(block['c1'])), onPressed: (){ if(amtCtrl.text.isNotEmpty){ addExp(noteCtrl.text.isEmpty? block['title'] : noteCtrl.text, amtCtrl.text, block['cat']); Navigator.pop(ctx); } }, child: Text("Add करा"))]))));
   }
-
   @override Widget build(BuildContext context){
     return Scaffold(
       backgroundColor: Color(0xFF070A11),
@@ -223,7 +240,6 @@ class _DState extends State<DainikKharchApp> {
     );
   }
   Widget nav(IconData ic,int idx){ bool s=tab==idx; return GestureDetector(onTap: ()=>setState(()=>tab=idx), child: AnimatedContainer(duration: Duration(milliseconds: 250), padding: EdgeInsets.symmetric(horizontal: 22, vertical: 12), decoration: BoxDecoration(color: s?Color(0xFF00E676):Colors.transparent, borderRadius: BorderRadius.circular(20)), child: Icon(ic, color: s?Colors.black:Colors.white38, size: 22))); }
-
   Widget buildDash(){
     double today=0; for(var e in exps){ if(sameDay(e.date, selDate)) today+= double.tryParse(e.amount)??0; }
     double perc = (today/monthlyBudget).clamp(0,1);
@@ -240,7 +256,7 @@ class _DState extends State<DainikKharchApp> {
         SizedBox(height: 16),
         Text("आजची यादी (${todaysList.length})", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
         SizedBox(height: 8),
-    ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
+   ...todaysList.asMap().entries.map((en){ int idx = exps.indexOf(en.value); var e=en.value; return GestureDetector(onTap: ()=> showListOptions(idx, e), child: Container(margin: EdgeInsets.only(bottom: 8), padding: EdgeInsets.all(12), decoration: BoxDecoration(color: Color(0xFF12151E), borderRadius: BorderRadius.circular(14)), child: Row(children: [CircleAvatar(backgroundColor: Color(0xFF00E676).withOpacity(0.15), child: Text("₹", style: TextStyle(color: Color(0xFF00E676)))), SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(e.title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)), Text(e.cat, style: TextStyle(color: Colors.white38, fontSize: 10))])), Text("₹${e.amount}", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold))])));
         }).toList(),
         SizedBox(height: 30),
       ])),
