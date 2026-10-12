@@ -17,7 +17,6 @@ jobs:
           channel: 'stable'
       - name: Setup Icon + Original Fingerprint Restore
         run: |
-          ICON=$(ls IMG*.jpg 2>/dev/null | head -1)
           cp pubspec.yaml /tmp/p.yaml
           cp lib/main.dart /tmp/m.dart
           rm -rf android
@@ -25,29 +24,17 @@ jobs:
           cp /tmp/p.yaml pubspec.yaml
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
-          cp "$ICON" assets/app_icon.png
+          # Icon आधीच आहे, फक्त check करतो - IMG search नको
+          if [ -f "assets/app_icon.png" ]; then
+            echo "Icon found ✅"
+          else
+            echo "Icon NOT found in assets!"
+            ls -R assets
+          fi
+          # BG पण check
+          ls -lh assets/
           python3 << 'PY'
-          import pathlib, glob, os
-          # Fix pubspec for icon only
-          p=pathlib.Path("pubspec.yaml")
-          t=p.read_text()
-          t="\n".join([l for l in t.splitlines() if "flutter_launcher_icons: ^0.13.1" not in l and "image_path:" not in l and 'android: "launcher_icon"' not in l and "min_sdk_android" not in l])
-          # remove old root block
-          lines=[]; skip=False
-          for l in t.splitlines():
-              if l.strip().startswith("flutter_launcher_icons:") and not l.startswith(" "):
-                  skip=True; continue
-              if skip and l.startswith("  "): continue
-              skip=False
-              lines.append(l)
-          t="\n".join(lines)
-          if "dev_dependencies:" not in t:
-              t+="\ndev_dependencies:\n  flutter_launcher_icons: ^0.13.1\n"
-          elif "flutter_launcher_icons" not in t:
-              t=t.replace("dev_dependencies:", "dev_dependencies:\n  flutter_launcher_icons: ^0.13.1")
-          t+="\nflutter_launcher_icons:\n  android: \"launcher_icon\"\n  image_path: \"assets/app_icon.png\"\n  min_sdk_android: 21\n"
-          p.write_text(t)
-          # FORCE FragmentActivity - Hach khara fix aahe
+          import pathlib, os
           kt_path = "android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt"
           os.makedirs(os.path.dirname(kt_path), exist_ok=True)
           pathlib.Path(kt_path).write_text("package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n")
@@ -62,5 +49,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Dainik-Kharch-Original-Fingerprint-Restored
+          name: Dainik-Kharch-Warli-Pradip
           path: build/app/outputs/flutter-apk/app-release.apk
