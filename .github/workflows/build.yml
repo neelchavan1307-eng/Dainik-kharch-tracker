@@ -24,14 +24,12 @@ jobs:
           cp /tmp/p.yaml pubspec.yaml
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
-          # Icon आधीच आहे, फक्त check करतो - IMG search नको
           if [ -f "assets/app_icon.png" ]; then
             echo "Icon found ✅"
           else
             echo "Icon NOT found in assets!"
             ls -R assets
           fi
-          # BG पण check
           ls -lh assets/
           python3 << 'PY'
           import pathlib, os
@@ -40,6 +38,12 @@ jobs:
           pathlib.Path(kt_path).write_text("package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n")
           print("Fixed MainActivity to FlutterFragmentActivity")
           PY
+          # --- FIX FOR file_picker ERROR ---
+          sed -i "s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g" android/app/build.gradle
+          sed -i "s/compileSdk flutter.compileSdkVersion/compileSdk 35/g" android/app/build.gradle
+          sed -i "s/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g" android/app/build.gradle
+          sed -i "s/targetSdk flutter.targetSdkVersion/targetSdk 35/g" android/app/build.gradle
+          echo "Fixed compileSdk to 35 ✅"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />' android/app/src/main/AndroidManifest.xml
       - name: Build
         run: |
