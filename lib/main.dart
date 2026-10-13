@@ -172,7 +172,7 @@ class _DState extends State<DainikKharchApp> {
     // --- नवीन 3 ला बाकीच्या सारखे रंगीत केले ---
     {"title":"ई एम आय","icon":"🏦","बँक":"emi","c1":0xFF4527A0,"c2":0xFF7E57C2},
     {"title":"इन्शुरन्स","icon":"🛡️","cat":"बँक","c1":0xFF00695C,"c2":0xFF26A69A},
-    {"title":"दूध","icon":"🥛","cat":"किराणा","c1":0xFFEF6C00,"c2":0xFFFFCC80},
+    {"title":"दूध","icon":"🥛","cat":"खाद्य","c1":0xFFEF6C00,"c2":0xFFFFCC80},
   ];
   @override void initState(){ super.initState(); load(); }
   Future<void> load() async { final p = await SharedPreferences.getInstance(); var s = p.getString('ex'); if(s!=null) exps = (jsonDecode(s) as List).map((e)=>Expense.fromJson(e)).toList(); var u = p.getString('ud'); if(u!=null) udhars = (jsonDecode(u) as List).map((e)=>Udhaari.fromJson(e)).toList(); var b = p.getDouble('budget'); if(b!=null) monthlyBudget=b; var ln = p.getString('lang'); if(ln!=null) currentLang = ln; setState((){}); }
