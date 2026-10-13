@@ -15,38 +15,21 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-      - name: Setup Icon + Original Fingerprint Restore
+      - name: Setup
         run: |
-          cp pubspec.yaml /tmp/p.yaml
           cp lib/main.dart /tmp/m.dart
           rm -rf android
           flutter create --project-name dainik_kharch_tracker --org com.example --platforms android .
-          cp /tmp/p.yaml pubspec.yaml
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
           python3 << 'PY'
           import pathlib, os
-          kt_path = "android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt"
-          os.makedirs(os.path.dirname(kt_path), exist_ok=True)
-          pathlib.Path(kt_path).write_text("package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n")
+          kt="android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt"
+          os.makedirs(os.path.dirname(kt), exist_ok=True)
+          pathlib.Path(kt).write_text("package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n")
           PY
-          # --- FINAL FIX - compileSdk 36 ---
-          BUILD_FILE=$(find android/app -name "build.gradle*" | head -n 1)
-          echo "Found: $BUILD_FILE"
-          sed -i "s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/g" $BUILD_FILE || true
-          sed -i "s/compileSdk flutter.compileSdkVersion/compileSdk 36/g" $BUILD_FILE || true
-          sed -i "s/compileSdk = flutter.compileSdkVersion/compileSdk = 36/g" $BUILD_FILE || true
-          sed -i "s/compileSdkVersion 35/compileSdkVersion 36/g" $BUILD_FILE || true
-          sed -i "s/compileSdk = 35/compileSdk = 36/g" $BUILD_FILE || true
-          sed -i "s/compileSdk 35/compileSdk 36/g" $BUILD_FILE || true
-          sed -i "s/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 36/g" $BUILD_FILE || true
-          sed -i "s/targetSdk flutter.targetSdkVersion/targetSdk 36/g" $BUILD_FILE || true
-          sed -i "s/targetSdk = flutter.targetSdkVersion/targetSdk = 36/g" $BUILD_FILE || true
-          sed -i "s/targetSdkVersion 35/targetSdkVersion 36/g" $BUILD_FILE || true
-          sed -i "s/targetSdk = 35/targetSdk = 36/g" $BUILD_FILE || true
-          sed -i "s/targetSdk 35/targetSdk 36/g" $BUILD_FILE || true
-          echo "Fixed to 36 ✅"
-          cat $BUILD_FILE | grep -i "compileSdk\|targetSdk"
+          FILE=$(find android/app -name "build.gradle*" | head -n 1)
+          sed -i "s/flutter.compileSdkVersion/36/g; s/flutter.targetSdkVersion/36/g; s/35/36/g" $FILE || true
           sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />' android/app/src/main/AndroidManifest.xml
       - name: Build
         run: |
