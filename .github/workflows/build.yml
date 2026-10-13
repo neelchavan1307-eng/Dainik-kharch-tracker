@@ -24,24 +24,29 @@ jobs:
           cp /tmp/p.yaml pubspec.yaml
           cp /tmp/m.dart lib/main.dart
           mkdir -p assets
-          if [ -f "assets/app_icon.png" ]; then echo "Icon found ✅"; else ls -R assets; fi
           python3 << 'PY'
           import pathlib, os
           kt_path = "android/app/src/main/kotlin/com/example/dainik_kharch_tracker/MainActivity.kt"
           os.makedirs(os.path.dirname(kt_path), exist_ok=True)
           pathlib.Path(kt_path).write_text("package com.example.dainik_kharch_tracker\nimport io.flutter.embedding.android.FlutterFragmentActivity\nclass MainActivity: FlutterFragmentActivity()\n")
-          print("Fixed MainActivity")
           PY
-          # --- AUTO FIX FOR build.gradle AND build.gradle.kts ---
+          # --- FINAL FIX - compileSdk 36 ---
           BUILD_FILE=$(find android/app -name "build.gradle*" | head -n 1)
-          echo "Found build file: $BUILD_FILE"
-          sed -i "s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/g" $BUILD_FILE || true
-          sed -i "s/compileSdk flutter.compileSdkVersion/compileSdk 35/g" $BUILD_FILE || true
-          sed -i "s/compileSdk = flutter.compileSdkVersion/compileSdk = 35/g" $BUILD_FILE || true
-          sed -i "s/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 35/g" $BUILD_FILE || true
-          sed -i "s/targetSdk flutter.targetSdkVersion/targetSdk 35/g" $BUILD_FILE || true
-          sed -i "s/targetSdk = flutter.targetSdkVersion/targetSdk = 35/g" $BUILD_FILE || true
-          echo "Fixed compileSdk to 35 ✅"
+          echo "Found: $BUILD_FILE"
+          sed -i "s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/g" $BUILD_FILE || true
+          sed -i "s/compileSdk flutter.compileSdkVersion/compileSdk 36/g" $BUILD_FILE || true
+          sed -i "s/compileSdk = flutter.compileSdkVersion/compileSdk = 36/g" $BUILD_FILE || true
+          sed -i "s/compileSdkVersion 35/compileSdkVersion 36/g" $BUILD_FILE || true
+          sed -i "s/compileSdk = 35/compileSdk = 36/g" $BUILD_FILE || true
+          sed -i "s/compileSdk 35/compileSdk 36/g" $BUILD_FILE || true
+          sed -i "s/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 36/g" $BUILD_FILE || true
+          sed -i "s/targetSdk flutter.targetSdkVersion/targetSdk 36/g" $BUILD_FILE || true
+          sed -i "s/targetSdk = flutter.targetSdkVersion/targetSdk = 36/g" $BUILD_FILE || true
+          sed -i "s/targetSdkVersion 35/targetSdkVersion 36/g" $BUILD_FILE || true
+          sed -i "s/targetSdk = 35/targetSdk = 36/g" $BUILD_FILE || true
+          sed -i "s/targetSdk 35/targetSdk 36/g" $BUILD_FILE || true
+          echo "Fixed to 36 ✅"
+          cat $BUILD_FILE | grep -i "compileSdk\|targetSdk"
           sed -i '/<application/i \    <uses-permission android:name="android.permission.USE_BIOMETRIC" />\n    <uses-permission android:name="android.permission.USE_FINGERPRINT" />' android/app/src/main/AndroidManifest.xml
       - name: Build
         run: |
