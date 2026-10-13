@@ -169,10 +169,10 @@ class _DState extends State<DainikKharchApp> {
     {"title":"रिचार्ज","icon":"📱","cat":"रिचार्ज","c1":0xFF00B8D4,"c2":0xFF84FFFF},
     {"title":"चहा नाश्ता","icon":"☕","cat":"खाद्य","c1":0xFFFF1744,"c2":0xFFFF8A80},
     {"title":"इतर","icon":"➕","cat":"इतर","c1":0xFF6C757D,"c2":0xFFADB5BD},
-    // --- नवीन 3 कॉलम तुमच्या फोटो प्रमाणे ---
-    {"title":"emi","icon":"🏦","cat":"emi","c1":0xFF1A1A1A,"c2":0xFF1A1A1A, "border": true},
-    {"title":"insurance","icon":"🛡️","cat":"insurance","c1":0xFF1A1A1A,"c2":0xFF1A1A1A, "border": true},
-    {"title":"milk","icon":"🥛","cat":"milk","c1":0xFF1A1A1A,"c2":0xFF1A1A1A, "border": true},
+    // --- नवीन 3 ला बाकीच्या सारखे रंगीत केले ---
+    {"title":"emi","icon":"🏦","cat":"emi","c1":0xFF4527A0,"c2":0xFF7E57C2},
+    {"title":"insurance","icon":"🛡️","cat":"insurance","c1":0xFF00695C,"c2":0xFF26A69A},
+    {"title":"milk","icon":"🥛","cat":"milk","c1":0xFFEF6C00,"c2":0xFFFFCC80},
   ];
   @override void initState(){ super.initState(); load(); }
   Future<void> load() async { final p = await SharedPreferences.getInstance(); var s = p.getString('ex'); if(s!=null) exps = (jsonDecode(s) as List).map((e)=>Expense.fromJson(e)).toList(); var u = p.getString('ud'); if(u!=null) udhars = (jsonDecode(u) as List).map((e)=>Udhaari.fromJson(e)).toList(); var b = p.getDouble('budget'); if(b!=null) monthlyBudget=b; var ln = p.getString('lang'); if(ln!=null) currentLang = ln; setState((){}); }
@@ -249,19 +249,13 @@ class _DState extends State<DainikKharchApp> {
         ])),
         SizedBox(height: 18),
         GridView.builder(shrinkWrap: true, physics: NeverScrollableScrollPhysics(), gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.95), itemCount: catBlocks.length, itemBuilder: (c,i){
-          var b = catBlocks[i]; bool isDark = b['border'] == true;
-          return GestureDetector(onTap: ()=>openManualEntry(b), child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(b['c1']), Color(b['c2'])]),
-              borderRadius: BorderRadius.circular(22),
-              border: isDark? Border.all(color: Color(0xFFFF8A50), width: 2.2) : null
-            ),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(b['icon'], style: TextStyle(fontSize: 30)), SizedBox(height: 6), Text(b['title'], style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),])));
+          var b = catBlocks[i];
+          return GestureDetector(onTap: ()=>openManualEntry(b), child: Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(b['c1']), Color(b['c2'])]), borderRadius: BorderRadius.circular(22)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text(b['icon'], style: TextStyle(fontSize: 30)), SizedBox(height: 6), Text(b['title'], style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),])));
         }),
         SizedBox(height: 22),
         Text("${L['list']!} (${todaysList.length})", style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
         SizedBox(height: 10),
-      ...todaysList.asMap().entries.map((entry){
+     ...todaysList.asMap().entries.map((entry){
           int idx = exps.indexOf(entry.value); var e = entry.value;
           String dateStr = DateFormat('dd MMM').format(e.date);
           return GestureDetector(
